@@ -1,52 +1,16 @@
-body{
-    margin:0;
-    height:100vh;
-
-    display:flex;
-    justify-content:center;
-    align-items:center;
-
-    background:#06080f;
-    font-family:Arial, sans-serif;
-    color:white;
+#card-container {
+    background: radial-gradient(circle at center, #111b27 0%, #000000 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.page{
-    text-align:center;
+canvas {
+    display: block;
+    outline: none;
 }
 
-.pack-wrapper{
-    width:1000px;
-    height:420px;
-    perspective:1000px;
-}
-
-#pack{
-
-    width:100%;
-    height:auto;
-
-    transform-style:preserve-3d;
-
-    transition:
-        transform 0.12s ease,
-        filter 0.2s ease;
-
-    filter:drop-shadow(0px 25px 40px rgba(0,0,0,0.8));
-}
-
-#pack:hover{
-    filter:drop-shadow(0px 35px 60px rgba(0,0,0,0.9));
-}
-
-.tap-text{
-
-    margin-top:30px;
-
-    opacity:0.7;
-
-    letter-spacing:2px;
-
-    font-size:14px;
-
+/* Optional: Add a subtle glow to the pack */
+canvas {
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.05));
 }
