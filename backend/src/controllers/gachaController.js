@@ -10,9 +10,10 @@ async function openPack(req, res, next) {
   }
 }
 
-function getAllQuestions(req, res, next) {
+async function getAllQuestions(req, res, next) {
   try {
-    const questions = questionService.getAllQuestions();
+    const size = Number(req.query.size) || 100;
+    const questions = await questionService.getAllQuestions(size);
     res.json(questions);
   } catch (error) {
     next(error);
