@@ -5,9 +5,8 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 camera.position.z = 8;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-// BALANCED BRIGHTNESS: Reduced to see texture details
-renderer.toneMappingExposure = 1.2; 
+renderer.toneMapping = THREE.LinearToneMapping;
+renderer.toneMappingExposure = 1.0; 
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.getElementById('card-container').appendChild(renderer.domElement);
@@ -47,24 +46,12 @@ for (let i = 0; i < 70; i++) {
 }
 scene.add(codeGroup);
 
-// CLEAN LIGHTING
-const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); 
-scene.add(ambientLight);
-const spotLight = new THREE.SpotLight(0xffffff, 60); 
-spotLight.position.set(0, 5, 10);
-scene.add(spotLight);
-
 const loader = new THREE.TextureLoader();
 const packTexture = loader.load('./assets/images/pack.png');
-const faceMat = new THREE.MeshPhysicalMaterial({ 
-    map: packTexture, 
-    metalness: 0.6, 
-    roughness: 0.3, 
-    iridescence: 0.5,
-    emissive: new THREE.Color(0xffffff),
-    emissiveMap: packTexture,
-    emissiveIntensity: 0.4 // Glows without being washed out
-});
+packTexture.colorSpace = THREE.SRGBColorSpace;
+
+const faceMat = new THREE.MeshBasicMaterial({ map: packTexture, transparent: true });
+
 const cardPack = new THREE.Mesh(new THREE.BoxGeometry(2.0, 3.0, 0.1), faceMat);
 cardPack.position.y = 0.5;
 scene.add(cardPack);
@@ -73,7 +60,6 @@ let mouseX = 0, mouseY = 0;
 window.addEventListener('mousemove', (e) => {
     mouseX = (e.clientX / window.innerWidth) * 2 - 1;
     mouseY = (e.clientY / window.innerHeight) * 2 - 1;
-    spotLight.position.x = mouseX * 5; spotLight.position.y = -mouseY * 5;
 });
 
 function animate() {
@@ -93,7 +79,6 @@ window.addEventListener('resize', () => {
 });
 animate();
 
-// SLOWEST TYPEWRITER
 const prefixT = document.getElementById('type-prefix'), mainT = document.getElementById('type-main');
 function typeWriter(text, element, delay, callback) {
     let i = 0;
@@ -103,5 +88,5 @@ function typeWriter(text, element, delay, callback) {
     }
     type();
 }
-// Delays increased to 300ms/350ms for a very slow effect
+// Delays: 300ms/350ms
 setTimeout(() => typeWriter("<CS>", prefixT, 300, () => typeWriter(" Gacha!", mainT, 350)), 500);

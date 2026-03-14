@@ -27,11 +27,11 @@ html, body {
     pointer-events: none;
 }
 
-.logo-prefix.blue-text {
-    color: #00d2ff;
+.logo-prefix.dark-blue-text {
+    color: #4A90E2; 
     font-weight: 800;
     font-size: 3rem; 
-    text-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
+    text-shadow: 0 0 10px rgba(74, 144, 226, 0.3);
 }
 
 .logo-main {
@@ -65,11 +65,7 @@ html, body {
     letter-spacing: 2px;
 }
 
-.nav-item:hover {
-    color: #00d2ff;
-    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
-}
-
+.nav-item:hover { color: #4A90E2; }
 .nav-sep { color: rgba(255, 255, 255, 0.2); font-size: 1.2rem; }
 
 .cta-container {
@@ -86,7 +82,7 @@ html, body {
 .handwriting {
     font-family: 'Schoolbell', cursive;
     font-size: 1.8rem;
-    color: #0077ff; 
+    color: #4A90E2; 
     margin: 0;
     text-transform: lowercase;
     transform: rotate(-2deg);
@@ -96,7 +92,8 @@ html, body {
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
     animation: drawArrow 1.5s ease-out forwards;
-    animation-delay: 1.5s; 
+    /* REDUCED DELAY: Starts almost immediately */
+    animation-delay: 0.4s; 
 }
 
 @keyframes drawArrow { to { stroke-dashoffset: 0; } }
@@ -104,8 +101,10 @@ html, body {
 .curvy-arrow {
     margin-bottom: 5px;
     margin-left: 70px; 
-    filter: drop-shadow(0 0 8px rgba(0, 119, 255, 0.5));
+    filter: drop-shadow(0 0 5px rgba(74, 144, 226, 0.4));
 }
 
-.cursor { color: #00d2ff; font-size: 3.2rem; animation: blink 1s infinite; }
+.cursor { color: #4A90E2; font-size: 3.2rem; animation: blink 1s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+canvas { display: block; }
