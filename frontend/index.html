@@ -1,12 +1,32 @@
 <!DOCTYPE html>
-<html lang = "en">
-    <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1"/>
-    <link rel="stylesheet" href="styles/styles.css"/>
-    <title><Datalist></Datalist>ecoROOM</title>
-    </head>
-    <body>
-        <script type = "module" src = "src/main.js"></script>
-    </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decoroom | 3D Pack</title>
+    <link href="./styles/tailwind.css" rel="stylesheet">
+    <link href="./styles/styles.css" rel="stylesheet">
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body class="bg-black m-0 overflow-hidden select-none">
+    
+    <main id="card-container" class="fixed inset-0 w-full h-full"></main>
+
+    <nav class="absolute bottom-12 w-full flex justify-center pointer-events-none z-10">
+        <div class="text-center">
+            <h2 class="text-white text-2xl font-bold tracking-[0.3em] uppercase opacity-80">
+                Decoroom
+            </h2>
+        </div>
+    </nav>
+
+    <script type="module" src="./src/pack.js"></script>
+</body>
 </html>
