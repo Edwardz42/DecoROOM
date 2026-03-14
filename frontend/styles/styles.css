@@ -1,0 +1,16 @@
+#card-container {
+    background: radial-gradient(circle at center, #111b27 0%, #000000 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    display: block;
+    outline: none;
+}
+
+/* Optional: Add a subtle glow to the pack */
+canvas {
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.05));
+}
