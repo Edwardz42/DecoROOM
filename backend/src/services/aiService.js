@@ -1,55 +1,155 @@
-const axios = require('axios');
+const { Client } = require('@elastic/elasticsearch');
 
-// CHANGE THIS when Yash gives real endpoint
-const AI_BASE_URL = process.env.AI_SERVICE_URL || 'http://localhost:4000';
+const INDEX = 'gacha_questions';
+const INFERENCE_ID = 'gacha-inference';
+const THRESHOLD = 0.94;
 
-async function gradeAnswer(questionId, playerAnswer){
-
-   try{
-
-      const response = await axios.post(
-         `${AI_BASE_URL}/grade`,
-         {
-            questionId,
-            answer:playerAnswer
-         }
-      );
-
-      return response.data;
-
+const client = new Client({
+   cloud: {
+      id: process.env.ELASTIC_CLOUD_ID
+   },
+   auth: {
+      username: process.env.ELASTIC_USERNAME,
+      password: process.env.ELASTIC_PASSWORD
    }
-   catch(error){
+});
 
-      console.error("AI grading failed:",error.message);
-
-      throw new Error("AI_GRADING_FAILED");
-
+function ensureElasticConfig() {
+   if (!process.env.ELASTIC_CLOUD_ID || !process.env.ELASTIC_USERNAME || !process.env.ELASTIC_PASSWORD) {
+      throw new Error('ELASTIC_CONFIG_MISSING');
    }
-
 }
 
-async function getQuestion(questionId){
+async function gradeAnswer(questionId, playerInput) {
+   try {
+      ensureElasticConfig();
 
-   try{
+      const res = await client.search({
+         index: INDEX,
+         query: {
+            knn: {
+               field: 'answer_vector',
+               query_vector_builder: {
+                  text_embedding: {
+                     model_id: INFERENCE_ID,
+                     model_text: playerInput
+                  }
+               },
+               k: 1,
+               num_candidates: 10,
+               filter: {
+                  term: {
+                     question_id: questionId
+                  }
+               }
+            }
+         },
+         _source: ['question_id', 'ideal_answer', 'hint']
+      });
 
-      const response = await axios.get(
-         `${AI_BASE_URL}/question/${questionId}`
-      );
+      const hit = res.hits?.hits?.[0] || null;
+      const score = hit?._score || 0;
+      const isCorrect = score >= THRESHOLD;
 
-      return response.data;
-
+      return {
+         isCorrect,
+         score,
+         threshold: THRESHOLD,
+         matchedQuestionId: hit?._source?.question_id || null,
+         idealAnswer: hit?._source?.ideal_answer || null
+      };
+   } catch (error) {
+      console.error('AI grading failed:', error.message);
+      throw new Error('AI_GRADING_FAILED');
    }
-   catch(error){
+}
 
-      console.error("Question fetch failed:",error.message);
+async function getQuestion(questionId) {
+   try {
+      ensureElasticConfig();
 
-      throw new Error("QUESTION_FETCH_FAILED");
+      const res = await client.search({
+         index: INDEX,
+         size: 1,
+         query: {
+            term: {
+               question_id: questionId
+            }
+         },
+         _source: ['question_id', 'topic', 'question_text', 'ideal_answer', 'hint', 'difficulty']
+      });
 
+      const hit = res.hits?.hits?.[0] || null;
+
+      if (!hit) {
+         throw new Error('QUESTION_NOT_FOUND');
+      }
+
+      const source = hit._source;
+
+      return {
+         id: source.question_id,
+         topic: source.topic,
+         questionText: source.question_text,
+         idealAnswer: source.ideal_answer,
+         hint: source.hint,
+         difficulty: source.difficulty || 'medium'
+      };
+   } catch (error) {
+      console.error('Question fetch failed:', error.message);
+      throw new Error('QUESTION_FETCH_FAILED');
    }
+}
 
+async function getHint(questionId, playerInput = null) {
+   try {
+      ensureElasticConfig();
+
+      if (!playerInput) {
+         const question = await getQuestion(questionId);
+         return {
+            questionId,
+            hint: question.hint || 'No hint available.'
+         };
+      }
+
+      const res = await client.search({
+         index: INDEX,
+         query: {
+            knn: {
+               field: 'answer_vector',
+               query_vector_builder: {
+                  text_embedding: {
+                     model_id: INFERENCE_ID,
+                     model_text: playerInput
+                  }
+               },
+               k: 1,
+               num_candidates: 10,
+               filter: {
+                  term: {
+                     question_id: questionId
+                  }
+               }
+            }
+         },
+         _source: ['question_id', 'hint']
+      });
+
+      const hit = res.hits?.hits?.[0] || null;
+
+      return {
+         questionId,
+         hint: hit?._source?.hint || 'Think about the core concept and constraints.'
+      };
+   } catch (error) {
+      console.error('Hint fetch failed:', error.message);
+      throw new Error('HINT_FETCH_FAILED');
+   }
 }
 
 module.exports = {
    gradeAnswer,
-   getQuestion
+   getQuestion,
+   getHint
 };

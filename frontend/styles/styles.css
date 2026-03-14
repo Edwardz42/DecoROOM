@@ -28,6 +28,15 @@ html, body {
 .nav-sep { color: rgba(255, 255, 255, 0.2); font-size: 1.2rem; }
 
 .cta-container {
+    position: absolute;
+    bottom: 15%;
+    left: 32%;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
     position: absolute; bottom: 10%; left: 32%; z-index: 100;
     display: flex; flex-direction: column; align-items: center; pointer-events: none;
 }
