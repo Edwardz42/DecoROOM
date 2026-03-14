@@ -1,10 +1,24 @@
 const express = require('express');
-const playerController = require('../controllers/playerController');
 
-const router = express.Router();
+const playerController =
+require('../controllers/playerController');
 
-router.post('/', playerController.registerPlayer);
-router.get('/leaderboard', playerController.getLeaderboard);
-router.get('/:playerId/collection', playerController.getCollection);
+const router =
+express.Router();
+
+router.post(
+   '/',
+   playerController.createPlayer
+);
+
+router.get(
+   '/',
+   playerController.getPlayers
+);
+
+router.get(
+   '/:playerId',
+   playerController.getPlayer
+);
 
 module.exports = router;

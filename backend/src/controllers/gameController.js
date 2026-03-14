@@ -1,184 +1,162 @@
 const gameEngine = require('../engine/gameEngine');
 const moveService = require('../services/moveService');
 
-function startGame(req, res, next) {
+async function startGame(req,res,next){
 
-  try {
+   try{
 
-    const { roomId } = req.params;
-    const { requesterPlayerId } = req.body;
+      const {roomId} = req.params;
+      const {requesterPlayerId} = req.body;
 
-    if(!requesterPlayerId){
-      return res.status(400).json({
-        error:"requesterPlayerId required"
-      });
-    }
-
-    const result =
+      const result =
       gameEngine.startGame(
-        roomId,
-        requesterPlayerId
+         roomId,
+         requesterPlayerId
       );
 
-    res.json({
-      status:"GAME_STARTED",
-      game:result
-    });
+      res.json(result);
 
-  }
-  catch(error){
-    next(error);
-  }
+   }
+   catch(error){
+
+      next(error);
+
+   }
 
 }
 
-function getState(req, res, next){
+async function getState(req,res,next){
 
-  try{
+   try{
 
-    const { roomId } = req.params;
+      const {roomId} = req.params;
 
-    const state =
+      const state =
       gameEngine.buildPublicGameState(
-        roomId
+         roomId
       );
 
-    res.json({
-      status:"OK",
-      state
-    });
+      res.json(state);
 
-  }
-  catch(error){
-    next(error);
-  }
+   }
+   catch(error){
+
+      next(error);
+
+   }
 
 }
 
-function getCurrentQuestion(req,res,next){
+async function getCurrentQuestion(req,res,next){
 
-  try{
+   try{
 
-    const { roomId } = req.params;
-    const { playerId } = req.query;
+      const {roomId} = req.params;
+      const {playerId} = req.query;
 
-    if(!playerId){
-      return res.status(400).json({
-        error:"playerId required"
-      });
-    }
-
-    const question =
-      gameEngine.getCurrentQuestionForPlayer(
-        roomId,
-        playerId
+      const question =
+      await gameEngine.getCurrentQuestionForPlayer(
+         roomId,
+         playerId
       );
 
-    res.json({
-      status:"OK",
-      question
-    });
+      res.json(question);
 
-  }
-  catch(error){
-    next(error);
-  }
+   }
+   catch(error){
 
-}
+      next(error);
 
-function submitAnswer(req,res,next){
-
-  try{
-
-    const {
-      roomId,
-      playerId,
-      questionId,
-      answer
-    } = req.body;
-
-    if(
-      !roomId ||
-      !playerId ||
-      !questionId ||
-      answer === undefined
-    ){
-      return res.status(400).json({
-        error:"roomId, playerId, questionId, answer required"
-      });
-    }
-
-    const result =
-      gameEngine.submitAnswer({
-
-        roomId,
-        playerId,
-        questionId,
-        answer
-
-      });
-
-    res.json({
-
-      status:"ANSWER_PROCESSED",
-
-      correct:result.correct,
-
-      scoreUpdate:result.scoreUpdate,
-
-      nextQuestion:result.nextQuestion,
-
-      gameFinished:result.gameFinished,
-
-      winner:result.winner
-
-    });
-
-  }
-  catch(error){
-    next(error);
-  }
+   }
 
 }
 
-function getMoves(req,res,next){
+async function submitAnswer(req,res,next){
 
-  try{
+   try{
 
-    const { roomId } = req.params;
+      const {roomId} = req.params;
 
-    const moves =
+      const {
+         playerId,
+         questionId,
+         answer
+      } = req.body;
+
+      const result =
+      await gameEngine.submitAnswer({
+
+         roomId,
+         playerId,
+         questionId,
+         answer
+
+      });
+
+      res.json(result);
+
+   }
+   catch(error){
+
+      next(error);
+
+   }
+
+}
+
+async function skipQuestion(req,res,next){
+
+   try{
+
+      const {roomId} = req.params;
+      const {playerId} = req.body;
+
+      const result =
+      gameEngine.skipQuestion(
+         roomId,
+         playerId
+      );
+
+      res.json(result);
+
+   }
+   catch(error){
+
+      next(error);
+
+   }
+
+}
+
+async function getMoves(req,res,next){
+
+   try{
+
+      const {roomId} = req.params;
+
+      const moves =
       moveService.getMovesForRoom(
-        roomId
+         roomId
       );
 
-    res.json({
+      res.json(moves);
 
-      status:"OK",
+   }
+   catch(error){
 
-      moveCount:moves.length,
+      next(error);
 
-      moves
-
-    });
-
-  }
-  catch(error){
-    next(error);
-  }
+   }
 
 }
 
 module.exports = {
 
-  startGame,
-
-  getState,
-
-  getCurrentQuestion,
-
-  submitAnswer,
-
-  getMoves
+   startGame,
+   getState,
+   getCurrentQuestion,
+   submitAnswer,
+   skipQuestion,
+   getMoves
 
 };

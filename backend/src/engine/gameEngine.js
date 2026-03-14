@@ -1,224 +1,485 @@
-const db = require('../store/db');
-const createGameState = require('../models/createGameState');
 const roomService = require('../services/roomService');
 const questionService = require('../services/questionService');
-const scoringService = require('../services/scoringService');
 const moveService = require('../services/moveService');
-const playerService = require('../services/playerService');
-const checkAnswer = require('./checkEngine');
-const httpError = require('../utils/httpError');
-const { MOVE_TYPE } = require('../constants/gameConstants');
+const aiService = require('../services/aiService');
 
-function startGame(roomId, requesterPlayerId) {
-  const room = roomService.getRoom(roomId);
-  roomService.ensurePlayerInRoom(room, requesterPlayerId);
+const GAME_TIME = 10 * 60 * 1000;
 
-  if (room.hostPlayerId !== requesterPlayerId) {
-    throw httpError(403, 'only the host can start the game');
-  }
+const BASE_POINTS = {
 
-  if (!room.guestPlayerId) {
-    throw httpError(400, 'cannot start game without a guest');
-  }
+   easy:100,
+   medium:250,
+   hard:500
 
-  const hostQuestions = room.submittedQuestionSets[room.hostPlayerId] || [];
-  const guestQuestions = room.submittedQuestionSets[room.guestPlayerId] || [];
+};
 
-  if (hostQuestions.length !== 8 || guestQuestions.length !== 8) {
-    throw httpError(400, 'both players must submit 8 questions before starting');
-  }
+function now(){
 
-  if (!room.playersReady[room.hostPlayerId] || !room.playersReady[room.guestPlayerId]) {
-    throw httpError(400, 'both players must be ready before starting');
-  }
+   return Date.now();
 
-  const gameState = createGameState(room.id, room.hostPlayerId, room.guestPlayerId);
-  gameState.questionAssignments[room.hostPlayerId] = guestQuestions;
-  gameState.questionAssignments[room.guestPlayerId] = hostQuestions;
-
-  db.gameStates.set(room.id, gameState);
-  roomService.markStarted(room.id);
-
-  moveService.recordMove({
-    roomId,
-    playerId: requesterPlayerId,
-    type: MOVE_TYPE.START,
-    payload: {}
-  });
-
-  return buildPublicGameState(room.id);
 }
 
-function getGameState(roomId) {
-  const gameState = db.gameStates.get(roomId);
-  if (!gameState) {
-    throw httpError(404, 'game state not found');
-  }
-  return gameState;
+function iso(){
+
+   return new Date().toISOString();
+
 }
 
-function getCurrentQuestionForPlayer(roomId, playerId) {
-  const gameState = getGameState(roomId);
-  const room = roomService.getRoom(roomId);
-  roomService.ensurePlayerInRoom(room, playerId);
+function createPlayerState(
+   playerId,
+   deck
+){
 
-  const questionIds = gameState.questionAssignments[playerId];
-  const answerHistory = gameState.answerHistory[playerId];
-  const nextIndex = answerHistory.length;
+   return {
 
-  if (nextIndex >= questionIds.length) {
-    return null;
-  }
+      playerId,
 
-  const question = questionService.getQuestionById(questionIds[nextIndex]);
+      score:0,
 
-  return {
-    index: nextIndex,
-    total: questionIds.length,
-    questionId: question.id,
-    topic: question.topic,
-    difficulty: question.difficulty,
-    rarity: question.rarity,
-    question: question.question
-  };
+      correct:0,
+
+      wrong:0,
+
+      skipped:0,
+
+      streak:0,
+
+      bestStreak:0,
+
+      currentIndex:0,
+
+      completed:false,
+
+      deck,
+
+      questionStartTime:now()
+
+   };
+
 }
 
-function submitAnswer({ roomId, playerId, answer, usedHint = false, timeTakenMs = 0 }) {
-  const room = roomService.getRoom(roomId);
-  roomService.ensurePlayerInRoom(room, playerId);
+function calculatePoints(
 
-  if (room.status !== 'PLAYING') {
-    throw httpError(400, 'game is not currently active');
-  }
+   question,
+   responseTime,
+   streak,
+   aiScore
 
-  const gameState = getGameState(roomId);
-  const currentQuestion = getCurrentQuestionForPlayer(roomId, playerId);
+){
 
-  if (!currentQuestion) {
-    throw httpError(400, 'no more questions remaining for this player');
-  }
+   const base =
+   BASE_POINTS[
+      question.difficulty
+   ] || 100;
 
-  const fullQuestion = questionService.getQuestionById(currentQuestion.questionId);
-  const isCorrect = checkAnswer(answer, fullQuestion.answer);
-  const points = scoringService.calculatePoints({
-    question: fullQuestion,
-    isCorrect,
-    usedHint,
-    timeTakenMs
-  });
+   const speedBonus =
+   Math.max(
 
-  gameState.answerHistory[playerId].push({
-    questionId: fullQuestion.id,
-    submittedAnswer: answer,
-    correctAnswer: fullQuestion.answer,
-    isCorrect,
-    usedHint,
-    timeTakenMs,
-    pointsAwarded: points
-  });
+      0,
 
-  gameState.scores[playerId] += points;
-  gameState.timeSpentMs[playerId] += Number(timeTakenMs) || 0;
+      Math.round(
 
-  if (usedHint) {
-    gameState.hintsUsed[playerId] += 1;
-  }
+         200 -
+         (responseTime/50)
 
-  moveService.recordMove({
-    roomId,
-    playerId,
-    type: usedHint ? MOVE_TYPE.USE_HINT : MOVE_TYPE.ANSWER_QUESTION,
-    payload: {
-      questionId: fullQuestion.id,
-      answer,
-      isCorrect,
-      points,
-      timeTakenMs
-    }
-  });
+      )
 
-  if (isGameOver(gameState)) {
-    return finishGame(roomId);
-  }
+   );
 
-  return {
-    result: {
-      questionId: fullQuestion.id,
-      isCorrect,
-      pointsAwarded: points,
-      correctAnswer: fullQuestion.answer
-    },
-    gameState: buildPublicGameState(roomId)
-  };
+   const streakBonus =
+   Math.min(
+      streak*50,
+      300
+   );
+
+   let accuracyBonus = 0;
+
+   if(aiScore){
+
+      accuracyBonus =
+      Math.round(
+         (aiScore-0.94)*1000
+      );
+
+      if(accuracyBonus < 0){
+
+         accuracyBonus = 0;
+
+      }
+
+   }
+
+   return {
+
+      base,
+      speedBonus,
+      streakBonus,
+      accuracyBonus,
+
+      total:
+      base+
+      speedBonus+
+      streakBonus+
+      accuracyBonus
+
+   };
+
 }
 
-function isGameOver(gameState) {
-  return gameState.turnOrder.every((playerId) => {
-    const assigned = gameState.questionAssignments[playerId].length;
-    const answered = gameState.answerHistory[playerId].length;
-    return answered >= assigned;
-  });
+function startGame(
+   roomId,
+   requesterPlayerId
+){
+
+   const room =
+   roomService.getRoom(roomId);
+
+   if(
+      requesterPlayerId
+      !== room.hostPlayerId
+   ){
+
+      throw new Error(
+         "Only host can start"
+      );
+
+   }
+
+   const hostDeck =
+   room.submittedQuestionSets[
+      room.hostPlayerId
+   ];
+
+   const guestDeck =
+   room.submittedQuestionSets[
+      room.guestPlayerId
+   ];
+
+   room.gameState = {
+
+      phase:"IN_GAME",
+
+      startTime:iso(),
+
+      endTime:
+      now()+GAME_TIME,
+
+      players:{
+
+         [room.hostPlayerId]:
+
+         createPlayerState(
+
+            room.hostPlayerId,
+            guestDeck
+
+         ),
+
+         [room.guestPlayerId]:
+
+         createPlayerState(
+
+            room.guestPlayerId,
+            hostDeck
+
+         )
+
+      }
+
+   };
+
+   room.status = "IN_GAME";
+
+   moveService.initRoomMoves(
+      roomId
+   );
+
+   return room.gameState;
+
 }
 
-function finishGame(roomId) {
-  const gameState = getGameState(roomId);
-  const winnerPlayerId = scoringService.determineWinner(gameState);
+function buildPublicGameState(
+   roomId
+){
 
-  gameState.finished = true;
-  roomService.markFinished(roomId, winnerPlayerId);
+   const room =
+   roomService.getRoom(roomId);
 
-  const room = roomService.getRoom(roomId);
-  if (winnerPlayerId) {
-    const loserPlayerId = [room.hostPlayerId, room.guestPlayerId].find((id) => id !== winnerPlayerId);
-    playerService.recordWinLoss(winnerPlayerId, loserPlayerId);
-  }
+   return {
 
-   moveService.recordMove({
-    roomId,
-    playerId: winnerPlayerId,
-    type: MOVE_TYPE.END_GAME,
-    payload: {
-      winnerPlayerId
-    }
-  });
+      phase:
+      room.gameState.phase,
 
-  return {
-    winnerPlayerId,
-    draw: winnerPlayerId === null,
-    finalState: buildPublicGameState(roomId)
-  };
-}
+      timeLeft:
 
-function buildPublicGameState(roomId) {
-  const room = roomService.getRoom(roomId);
-  const gameState = getGameState(roomId);
+      Math.max(
 
-  return {
-    room: {
-      id: room.id,
-      hostPlayerId: room.hostPlayerId,
-      guestPlayerId: room.guestPlayerId,
-      status: room.status,
-      phase: room.phase,
-      winnerPlayerId: room.winnerPlayerId
-    },
-    game: {
-      scores: gameState.scores,
-      timeSpentMs: gameState.timeSpentMs,
-      hintsUsed: gameState.hintsUsed,
-      answerCounts: Object.fromEntries(
-        Object.entries(gameState.answerHistory).map(([playerId, answers]) => [playerId, answers.length])
+         0,
+
+         room.gameState.endTime
+         -
+         now()
+
       ),
-      finished: gameState.finished
-    }
-  };
+
+      players:
+
+      room.gameState.players
+
+   };
+
+}
+
+async function getCurrentQuestionForPlayer(
+
+   roomId,
+   playerId
+
+){
+
+   const room =
+   roomService.getRoom(roomId);
+
+   const player =
+   room.gameState.players[
+      playerId
+   ];
+
+   if(player.completed){
+
+      return {
+
+         completed:true
+
+      };
+
+   }
+
+   const questionId =
+   player.deck[
+      player.currentIndex
+   ];
+
+   const question =
+   await aiService.getQuestion(
+      questionId
+   );
+
+   return {
+
+      questionId,
+
+      question,
+
+      score:
+      player.score
+
+   };
+
+}
+
+async function submitAnswer({
+
+   roomId,
+   playerId,
+   questionId,
+   answer
+
+}){
+
+   const room =
+   roomService.getRoom(roomId);
+
+   const player =
+   room.gameState.players[
+      playerId
+   ];
+
+   const currentId =
+   player.deck[
+      player.currentIndex
+   ];
+
+   if(currentId !== questionId){
+
+      throw new Error(
+         "Wrong question"
+      );
+
+   }
+
+   const grading =
+   await aiService.gradeAnswer(
+
+      questionId,
+      answer
+
+   );
+
+   if(!grading){
+
+      throw new Error(
+         "AI failure"
+      );
+
+   }
+
+   const correct =
+   grading.isCorrect;
+
+   const responseTime =
+   now()-
+   player.questionStartTime;
+
+   const question =
+   await aiService.getQuestion(
+      questionId
+   );
+
+   let points = {
+
+      total:0
+
+   };
+
+   if(correct){
+
+      points =
+      calculatePoints(
+
+         question,
+         responseTime,
+         player.streak,
+         grading.score
+
+      );
+
+      player.score +=
+      points.total;
+
+      player.correct++;
+
+      player.streak++;
+
+      if(
+         player.streak
+         >
+         player.bestStreak
+      ){
+
+         player.bestStreak =
+         player.streak;
+
+      }
+
+   }
+   else{
+
+      player.wrong++;
+
+      player.streak = 0;
+
+   }
+
+   player.currentIndex++;
+
+   player.questionStartTime =
+   now();
+
+   if(
+
+      player.currentIndex
+      >=
+      player.deck.length
+
+   ){
+
+      player.completed =
+      true;
+
+   }
+
+   moveService.recordMove(
+
+      roomId,
+
+      {
+
+         type:"ANSWER",
+
+         playerId,
+
+         correct,
+
+         points:
+         points.total
+
+      }
+
+   );
+
+   return {
+
+      correct,
+
+      points:
+
+      points.total,
+
+      score:
+
+      player.score,
+
+      finished:
+
+      player.completed
+
+   };
+
+}
+
+function skipQuestion(
+
+   roomId,
+   playerId
+
+){
+
+   const room =
+   roomService.getRoom(roomId);
+
+   const player =
+   room.gameState.players[
+      playerId
+   ];
+
+   player.streak = 0;
+
+   player.skipped++;
+
+   player.currentIndex++;
+
+   player.questionStartTime =
+   now();
+
+   return {
+
+      skipped:true
+
+   };
+
 }
 
 module.exports = {
-  startGame,
-  getGameState,
-  getCurrentQuestionForPlayer,
-  submitAnswer,
-  finishGame,
-  buildPublicGameState
+
+   startGame,
+
+   buildPublicGameState,
+
+   getCurrentQuestionForPlayer,
+
+   submitAnswer,
+
+   skipQuestion
+
 };

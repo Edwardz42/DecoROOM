@@ -1,36 +1,57 @@
-const questionBank = require('../data/questionBank');
-const { PACK_TYPE } = require('../constants/gameConstants');
-const { shuffle } = require('../utils/random');
-const playerService = require('./playerService');
-const httpError = require('../utils/httpError');
+// Questions will come from Elastic later.
+// For now we just return placeholder IDs.
 
-function buildPoolByPackType(packType) {
-  if (packType === PACK_TYPE.BASIC) {
-    return questionBank.filter((q) => ['common', 'rare'].includes(q.rarity));
-  }
+function openPack(playerId){
 
-  if (packType === PACK_TYPE.ADVANCED) {
-    return questionBank;
-  }
+   if(!playerId){
 
-  throw httpError(400, 'invalid pack type');
-}
+      throw new Error(
+         "playerId required"
+      );
 
-function openPack({ playerId, packType = PACK_TYPE.BASIC }) {
-  playerService.getPlayer(playerId);
+   }
 
-  const pool = buildPoolByPackType(packType);
-  const drawn = shuffle(pool).slice(0, 5);
+   // temporary placeholder pack
+   // Elastic team will replace this
 
-  playerService.addCardsToCollection(playerId, drawn);
+   const pack = [];
 
-  return {
-    playerId,
-    packType,
-    cards: drawn
-  };
+   for(let i=0;i<8;i++){
+
+      pack.push({
+
+         questionId:
+         "q_"+Math.random()
+         .toString(36)
+         .substring(2,10),
+
+         difficulty:
+         ["easy","medium","hard"]
+         [
+            Math.floor(
+               Math.random()*3
+            )
+         ]
+
+      });
+
+   }
+
+   return {
+
+      playerId,
+
+      pack,
+
+      openedAt:
+      new Date().toISOString()
+
+   };
+
 }
 
 module.exports = {
-  openPack
+
+   openPack
+
 };

@@ -1,21 +1,34 @@
 const express = require('express');
-const gameController = require('../controllers/gameController');
 
-const router = express.Router();
+const gameController =
+require('../controllers/gameController');
 
-/* Start game */
-router.post('/:roomId/start', gameController.startGame);
+const router =
+express.Router();
 
-/* Game state */
-router.get('/:roomId/state', gameController.getState);
+router.post(
+   '/:roomId/start',
+   gameController.startGame
+);
 
-/* Current question */
-router.get('/:roomId/question', gameController.getCurrentQuestion);
+router.get(
+   '/:roomId/state',
+   gameController.getState
+);
 
-/* Submit answer */
-router.post('/:roomId/answer', gameController.submitAnswer);
+router.get(
+   '/:roomId/question',
+   gameController.getCurrentQuestion
+);
 
-/* Move history */
-router.get('/:roomId/moves', gameController.getMoves);
+router.post(
+   '/answer',
+   gameController.submitAnswer
+);
+
+router.get(
+   '/:roomId/moves',
+   gameController.getMoves
+);
 
 module.exports = router;
