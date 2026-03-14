@@ -1,10 +1,10 @@
-/* Ensure the body and html take up the full screen */
 html, body {
     margin: 0;
     padding: 0;
     width: 100%;
     height: 100%;
     background-color: black;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 #card-container {
@@ -13,13 +13,99 @@ html, body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    /* This gradient will now stretch to the full screen */
     background: radial-gradient(circle at center, #1c2a3d 0%, #000000 100%);
-    display: block;
 }
 
-canvas {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
+.logo-container {
+    position: absolute;
+    top: 60px;
+    left: 60px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    pointer-events: none;
 }
+
+.logo-prefix.blue-text {
+    color: #00d2ff;
+    font-weight: 800;
+    font-size: 3rem; 
+    text-shadow: 0 0 20px rgba(0, 210, 255, 0.5);
+}
+
+.logo-main {
+    color: white;
+    font-weight: 400;
+    font-size: 3rem;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    opacity: 0.9;
+}
+
+.nav-right {
+    position: absolute;
+    top: 80px; 
+    right: 60px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.nav-item:hover {
+    color: #00d2ff;
+    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+}
+
+.nav-sep { color: rgba(255, 255, 255, 0.2); font-size: 1.2rem; }
+
+.cta-container {
+    position: absolute;
+    bottom: 15%; 
+    left: 32%; 
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+}
+
+.handwriting {
+    font-family: 'Schoolbell', cursive;
+    font-size: 1.8rem;
+    color: #0077ff; 
+    margin: 0;
+    text-transform: lowercase;
+    transform: rotate(-2deg);
+}
+
+.drawing-path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: drawArrow 1.5s ease-out forwards;
+    animation-delay: 1.5s; 
+}
+
+@keyframes drawArrow { to { stroke-dashoffset: 0; } }
+
+.curvy-arrow {
+    margin-bottom: 5px;
+    margin-left: 70px; 
+    filter: drop-shadow(0 0 8px rgba(0, 119, 255, 0.5));
+}
+
+.cursor { color: #00d2ff; font-size: 3.2rem; animation: blink 1s infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }

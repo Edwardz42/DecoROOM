@@ -1,159 +1,107 @@
 import * as THREE from 'three';
 
-// 1. Scene Setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.z = 8;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// BALANCED BRIGHTNESS: Reduced to see texture details
 renderer.toneMappingExposure = 1.2; 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
-renderer.outputColorSpace = THREE.SRGBColorSpace; 
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.getElementById('card-container').appendChild(renderer.domElement);
 
-// 2. High-Quality Code Texture Generator
-function createCodeTexture() {
+function createCodeSnippet() {
     const canvas = document.createElement('canvas');
-    // Larger canvas size = clearer text
-    canvas.width = 2048; 
-    canvas.height = 2048;
+    canvas.width = 1024; canvas.height = 128;
     const ctx = canvas.getContext('2d');
-
-    // Solid Black Background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     const codeLines = [
-        { text: 'import * as THREE from "three";', color: '#ff79c6' }, // Pink
-        { text: 'const scene = new THREE.Scene();', color: '#8be9fd' }, // Cyan
-        { text: 'renderer.render(scene, camera);', color: '#50fa7b' }, // Green
-        { text: 'requestAnimationFrame(animate);', color: '#bd93f9' }, // Purple
-        { text: 'cardPack.rotation.y += 0.05;', color: '#f1fa8c' },    // Yellow
-        { text: 'console.log("DECOROOM_PRO");', color: '#ffb86c' },    // Orange
-        { text: 'mesh.material.metalness = 0.8;', color: '#ff5555' },  // Red
-        { text: 'const loader = new TextureLoader();', color: '#8be9fd' }
+        { text: 'import * as THREE from "three";', color: '#ff79c6' },
+        { text: 'const scene = new THREE.Scene();', color: '#8be9fd' },
+        { text: 'renderer.render(scene, camera);', color: '#50fa7b' },
+        { text: 'requestAnimationFrame(animate);', color: '#bd93f9' },
+        { text: 'cardPack.rotation.y += 0.05;', color: '#f1fa8c' }
     ];
-
-    // Sharp, monospace font
-    ctx.font = 'bold 32px "Courier New", monospace';
-    
-    // Distribute code lines across the canvas
-    for (let i = 0; i < 120; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const line = codeLines[Math.floor(Math.random() * codeLines.length)];
-        
-        ctx.globalAlpha = Math.random() * 0.7 + 0.3; // Make some lines brighter than others
-        ctx.fillStyle = line.color;
-        ctx.fillText(line.text, x, y);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Improves clarity at angles
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1.5, 1.5); 
-    return texture;
+    const line = codeLines[Math.floor(Math.random() * codeLines.length)];
+    ctx.font = 'bold 48px "JetBrains Mono", monospace';
+    ctx.fillStyle = line.color;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = line.color; ctx.shadowBlur = 10;
+    ctx.fillText(line.text, canvas.width / 2, canvas.height / 2);
+    return new THREE.CanvasTexture(canvas);
 }
 
-// 3. Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
+const codeGroup = new THREE.Group();
+for (let i = 0; i < 70; i++) {
+    const material = new THREE.MeshBasicMaterial({
+        map: createCodeSnippet(), transparent: true, opacity: 0.3, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+    });
+    const geometry = new THREE.PlaneGeometry(4, 0.5);
+    const mesh = new THREE.Mesh(geometry, material);
+    const angle = (Math.random() - 0.5) * Math.PI * 1.3; 
+    const radius = 10 + Math.random() * 8; 
+    mesh.position.set(Math.sin(angle) * radius, (Math.random() - 0.5) * 25, -Math.cos(angle) * radius);
+    mesh.lookAt(0, mesh.position.y, 0);
+    codeGroup.add(mesh);
+}
+scene.add(codeGroup);
+
+// CLEAN LIGHTING
+const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); 
 scene.add(ambientLight);
-
-const pointLight = new THREE.PointLight(0xffffff, 150);
-pointLight.position.set(5, 5, 5);
-scene.add(pointLight);
-
-const spotLight = new THREE.SpotLight(0xffffff, 50);
+const spotLight = new THREE.SpotLight(0xffffff, 60); 
 spotLight.position.set(0, 5, 10);
 scene.add(spotLight);
 
-// 4. Texture Loading (FIXED PATH)
 const loader = new THREE.TextureLoader();
-// "../" goes up from src folder into frontend folder
-const packTexture = loader.load('./assets/images/pack.png', 
-    () => console.log("Pack texture loaded successfully!"),
-    undefined,
-    (err) => console.error("Error loading pack texture. Check file path.")
-);
-packTexture.colorSpace = THREE.SRGBColorSpace;
-
-// 5. Create 3D Code Background Sphere
-const codeTexture = createCodeTexture();
-const bgGeometry = new THREE.SphereGeometry(45, 32, 32);
-const bgMaterial = new THREE.MeshBasicMaterial({
-    map: codeTexture,
-    side: THREE.BackSide, 
-    transparent: true,
-    opacity: 0.6 // Increased opacity for clearer colors
-});
-const backgroundSphere = new THREE.Mesh(bgGeometry, bgMaterial);
-scene.add(backgroundSphere);
-
-// 6. THE PACK (Foil Logic)
-const geometry = new THREE.BoxGeometry(2.0, 3.0, 0.1); 
-
+const packTexture = loader.load('./assets/images/pack.png');
 const faceMat = new THREE.MeshPhysicalMaterial({ 
-    map: packTexture,
-    metalness: 0.8,
-    roughness: 0.2,
-    iridescence: 0.7,
-    iridescenceIOR: 1.5,
-    iridescenceThicknessRange: [100, 400],
+    map: packTexture, 
+    metalness: 0.6, 
+    roughness: 0.3, 
+    iridescence: 0.5,
     emissive: new THREE.Color(0xffffff),
-    emissiveIntensity: 0.1,
-    emissiveMap: packTexture 
+    emissiveMap: packTexture,
+    emissiveIntensity: 0.4 // Glows without being washed out
 });
-
-const materials = [faceMat, faceMat, faceMat, faceMat, faceMat, faceMat];
-const cardPack = new THREE.Mesh(geometry, materials);
+const cardPack = new THREE.Mesh(new THREE.BoxGeometry(2.0, 3.0, 0.1), faceMat);
 cardPack.position.y = 0.5;
 scene.add(cardPack);
 
-// 7. Interaction
-let mouseX = 0;
-let mouseY = 0;
-
+let mouseX = 0, mouseY = 0;
 window.addEventListener('mousemove', (e) => {
     mouseX = (e.clientX / window.innerWidth) * 2 - 1;
     mouseY = (e.clientY / window.innerHeight) * 2 - 1;
-    
-    spotLight.position.x = mouseX * 5;
-    spotLight.position.y = -mouseY * 5;
+    spotLight.position.x = mouseX * 5; spotLight.position.y = -mouseY * 5;
 });
 
-// 8. Animation Loop
 function animate() {
     requestAnimationFrame(animate);
-
-    const targetRotY = mouseX * Math.PI; 
-    const targetRotX = mouseY * Math.PI;
-
-    // Smooth Pack Movement
+    const targetRotY = mouseX * Math.PI, targetRotX = mouseY * Math.PI;
     cardPack.rotation.y += (targetRotY - cardPack.rotation.y) * 0.05;
     cardPack.rotation.x += (targetRotX - cardPack.rotation.x) * 0.05;
-
-    // Smooth Background Parallax
-    backgroundSphere.rotation.y += (-targetRotY * 0.1 - backgroundSphere.rotation.y) * 0.02;
-    backgroundSphere.rotation.x += (-targetRotX * 0.1 - backgroundSphere.rotation.x) * 0.02;
-
-    // Continuous Code Scrolling (Slow drift)
-    codeTexture.offset.y += 0.0002;
-    codeTexture.offset.x += 0.0001;
-
-    // Floating effect
-    const time = Date.now() * 0.002;
-    cardPack.position.y = 0.5 + Math.sin(time) * 0.1; 
-
+    codeGroup.rotation.y += (-targetRotY * 0.1 - codeGroup.rotation.y) * 0.02;
+    codeGroup.rotation.x += (-targetRotX * 0.1 - codeGroup.rotation.x) * 0.02;
+    cardPack.position.y = 0.5 + Math.sin(Date.now() * 0.002) * 0.1; 
+    codeGroup.children.forEach(s => { s.position.y += 0.008; if (s.position.y > 12) s.position.y = -12; });
     renderer.render(scene, camera);
 }
-
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
 animate();
+
+// SLOWEST TYPEWRITER
+const prefixT = document.getElementById('type-prefix'), mainT = document.getElementById('type-main');
+function typeWriter(text, element, delay, callback) {
+    let i = 0;
+    function type() {
+        if (i < text.length) { element.innerHTML += text.charAt(i); i++; setTimeout(type, delay); }
+        else if (callback) callback();
+    }
+    type();
+}
+// Delays increased to 300ms/350ms for a very slow effect
+setTimeout(() => typeWriter("<CS>", prefixT, 300, () => typeWriter(" Gacha!", mainT, 350)), 500);

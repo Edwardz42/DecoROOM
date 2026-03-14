@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Decoroom | 3D Pack</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&family=Schoolbell&display=swap" rel="stylesheet">
     <link href="./styles/tailwind.css" rel="stylesheet">
     <link href="./styles/styles.css" rel="stylesheet">
     <script type="importmap">
@@ -17,15 +18,30 @@
 </head>
 <body class="bg-black m-0 overflow-hidden select-none">
     
-    <main id="card-container" class="fixed inset-0 w-full h-full"></main>
+    <div class="logo-container">
+        <span id="type-prefix" class="logo-prefix blue-text"></span>
+        <span id="type-main" class="logo-main"></span>
+        <span class="cursor">|</span>
+    </div>
 
-    <nav class="absolute bottom-12 w-full flex justify-center pointer-events-none z-10">
-        <div class="text-center">
-            <h2 class="text-white text-2xl font-bold tracking-[0.3em] uppercase opacity-80">
-                Decoroom
-            </h2>
-        </div>
+    <nav class="nav-right">
+        <button onclick="alert('Battle placeholder')" class="nav-item">Battle</button>
+        <span class="nav-sep">|</span>
+        <button onclick="alert('Deckbuilder placeholder')" class="nav-item">Deckbuilder</button>
+        <span class="nav-sep">|</span>
+        <button onclick="alert('Collection placeholder')" class="nav-item">Collection</button>
     </nav>
+
+    <div class="cta-container">
+        <svg class="curvy-arrow" width="120" height="100" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path class="drawing-path" d="M20 80C40 80 80 70 100 20M100 20L85 25M100 20L105 35" 
+                  stroke="#0077ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                  pathLength="1" />
+        </svg>
+        <p class="handwriting">tap to open a pack</p>
+    </div>
+
+    <main id="card-container" class="fixed inset-0 w-full h-full"></main>
 
     <script type="module" src="./src/pack.js"></script>
 </body>
