@@ -28,22 +28,37 @@ async function openPack(payload) {
       throw new Error('playerId required');
    }
 
-    const res = await getElasticClient().search({
-      index: 'gacha_questions',
-      size: 8,
-      query: {
-         function_score: {
-            query: {
-               match_all: {}
-            },
-            random_score: {},
-            boost_mode: 'replace'
-         }
-      },
-      _source: ['question_id', 'topic', 'question_text', 'hint', 'difficulty']
-   });
+   const rarityBuckets = {
+      easy: 5,
+      medium: 2,
+      hard: 1
+   };
 
-   const pack = (res.hits?.hits || []).map((hit) => ({
+   const pulls = await Promise.all(
+      Object.entries(rarityBuckets).map(async ([difficulty, count]) => {
+         const res = await getElasticClient().search({
+            index: 'gacha_questions',
+            size: Math.max(count * 3, 6),
+            query: {
+               bool: {
+                  must: [{ term: { difficulty } }]
+               }
+            },
+            _source: ['question_id', 'topic', 'question_text', 'hint', 'difficulty']
+         });
+
+         const hits = (res.hits?.hits || [])
+            .sort(() => Math.random() - 0.5)
+            .slice(0, count);
+
+         return hits;
+      })
+   );
+
+   const pack = pulls
+      .flat()
+      .sort(() => Math.random() - 0.5)
+      .map((hit) => ({
       questionId: hit._source.question_id,
       topic: hit._source.topic,
       questionText: hit._source.question_text,

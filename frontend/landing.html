@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Decoroom | 3D Question Gallery</title>
+    <title>cs gacha</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;800&family=Schoolbell&display=swap" rel="stylesheet">
     <link href="./styles/styles.css" rel="stylesheet">
     <script type="importmap">
@@ -16,26 +16,49 @@
 </head>
 <body class="bg-black m-0 overflow-hidden select-none">
 
-    <div class="logo-container">
+    <div class="logo-container" role="button" tabindex="0" aria-label="Go to main gacha page" onclick="window.location.href='./landing.html'" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='./landing.html';}">
         <span id="type-prefix" class="logo-prefix dark-blue-text"></span>
         <span id="type-main" class="logo-main"></span>
         <span class="cursor">|</span>
     </div>
 
     <nav class="nav-right">
-        <button onclick="alert('Battle!')" class="nav-item">Battle</button>
+        <button onclick="window.location.href='./index.html?screen=room-create'" class="nav-item">Battle</button>
         <span class="nav-sep">|</span>
-        <button onclick="alert('Deckbuilder!')" class="nav-item">Deckbuilder</button>
+        <button onclick="window.location.href='./index.html?screen=room-join'" class="nav-item">Join Room</button>
         <span class="nav-sep">|</span>
-        <button onclick="alert('Collection!')" class="nav-item">Collection</button>
+        <button onclick="window.location.href='./index.html?screen=deckbuilder'" class="nav-item">Deckbuilder</button>
+        <span class="nav-sep">|</span>
+        <button onclick="window.location.href='./index.html?screen=collection'" class="nav-item">Collection</button>
     </nav>
+
+    <section class="pack-hud" aria-live="polite">
+        <div class="pack-title">QUESTION PACK</div>
+        <div class="pack-subtitle">Hard cards are rare. New pack every 60 seconds.</div>
+        <div class="pack-controls">
+            <div class="cooldown-ring-wrap">
+                <svg class="cooldown-ring" width="90" height="90" viewBox="0 0 90 90">
+                    <circle class="cooldown-track" cx="45" cy="45" r="34"></circle>
+                    <circle id="cooldown-progress" class="cooldown-progress" cx="45" cy="45" r="34"></circle>
+                </svg>
+                <div id="cooldown-text" class="cooldown-text">READY</div>
+            </div>
+            <button id="open-pack-btn" class="open-pack-btn">OPEN PACK</button>
+        </div>
+    </section>
+
+    <div id="starter-banner" class="starter-banner hidden">Starter Pack Claimed - 8 cards unlocked</div>
 
     <div id="gallery-nav" class="gallery-controls">
         <button id="prev-card" class="arrow-btn">←</button>
+        <div class="gallery-meta">
+            <div id="card-rarity" class="rarity-chip">RARITY: --</div>
+            <div id="card-count" class="card-count">0/8</div>
+        </div>
         <button id="next-card" class="arrow-btn">→</button>
     </div>
 
-    <div class="cta-container" id="tap-cta">
+    <div class="cta-container" id="tap-cta" style="cursor:pointer;">
         <svg class="curvy-arrow" width="120" height="100" viewBox="0 0 120 100" fill="none">
             <path class="drawing-path" d="M20 80C40 80 80 70 100 20M100 20L85 25M100 20L105 35" 
                   stroke="#4A90E2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"

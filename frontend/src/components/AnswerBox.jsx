@@ -11,7 +11,7 @@ export default function AnswerBox({ answer, onChange, onSubmit, onHint, aiHelpUs
           onChange={e => onChange(e.target.value)}
           placeholder="Type your answer here…"
           rows={5}
-          style={{ width: "100%", background: "transparent", border: "none", color: COLORS.text, fontSize: 14, fontFamily: "'Space Mono', monospace", lineHeight: 1.7, boxSizing: "border-box", resize: "none", outline: "none" }}
+          style={{ width: "100%", background: "transparent", border: "none", color: COLORS.text, fontSize: "0.85rem", fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.7, boxSizing: "border-box", resize: "none", outline: "none" }}
         />
       </div>
 
@@ -29,7 +29,7 @@ export default function AnswerBox({ answer, onChange, onSubmit, onHint, aiHelpUs
             <button
               onClick={onHint}
               disabled={aiHelpUsed || loading}
-              style={{ background: "transparent", border: `1px solid ${COLORS.gold}`, borderRadius: 4, padding: "14px 20px", color: aiHelpUsed ? COLORS.textMuted : COLORS.gold, cursor: aiHelpUsed ? "not-allowed" : "pointer", fontSize: 12, letterSpacing: 2, fontFamily: "'Space Mono', monospace", whiteSpace: "nowrap" }}
+              style={{ background: "transparent", border: `1px solid ${aiHelpUsed ? COLORS.border : COLORS.gold}`, borderRadius: 4, padding: "12px 20px", color: aiHelpUsed ? COLORS.textMuted : COLORS.gold, cursor: aiHelpUsed ? "not-allowed" : "pointer", fontSize: "0.7rem", letterSpacing: 2, fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap" }}
             >
               {aiHelpUsed ? "HINT USED" : "ASK AI (-50%)"}
             </button>
