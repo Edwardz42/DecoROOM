@@ -1,17 +1,27 @@
-const db = require('../store/db');
+const roomMoves = {};
 
-function recordMove(move) {
-  db.moves.push({
-    ...move,
-    timestamp: new Date().toISOString()
+function initRoomMoves(roomId) {
+  roomMoves[roomId] = [];
+}
+
+function recordMove(roomId, move) {
+  if (!roomMoves[roomId]) {
+    roomMoves[roomId] = [];
+  }
+
+  roomMoves[roomId].push({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: new Date().toISOString(),
+    ...move
   });
 }
 
 function getMovesForRoom(roomId) {
-  return db.moves.filter((move) => move.roomId === roomId);
+  return roomMoves[roomId] || [];
 }
 
 module.exports = {
+  initRoomMoves,
   recordMove,
   getMovesForRoom
 };
