@@ -34,8 +34,9 @@ const loader = new THREE.TextureLoader();
 const packTexture = loader.load('./assets/images/pack.png');
 packTexture.colorSpace = THREE.SRGBColorSpace; // Keeps Canva colors accurate
 
-// 4. Geometry (Thinned out to look like a foil sleeve)
-const geometry = new THREE.BoxGeometry(3.2, 4.8, 0.15); 
+// Original: (3.2, 4.5, 0.6)
+// New Smaller Version:
+const geometry = new THREE.BoxGeometry(2.0, 3.0, 0.1); 
 
 // 5. THE FOIL MATERIAL
 // MeshPhysicalMaterial allows for iridescence (rainbow effect)
@@ -56,8 +57,11 @@ const faceMat = new THREE.MeshPhysicalMaterial({
 const sideMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 });
 
 // Materials array: Right, Left, Top, Bottom, Front, Back
-const materials = [sideMat, sideMat, sideMat, sideMat, faceMat, faceMat];
+// Use the SAME faceMat for all 6 sides
+const materials = [faceMat, faceMat, faceMat, faceMat, faceMat, faceMat];
 const cardPack = new THREE.Mesh(geometry, materials);
+// Add this in pack.js after scene.add(cardPack);
+cardPack.position.y = 0.5; // Adjust this number (0.8, 1.2, etc.) until it's perfect
 scene.add(cardPack);
 
 // 6. Animation & Interaction
@@ -76,11 +80,16 @@ window.addEventListener('mousemove', (e) => {
 function animate() {
     requestAnimationFrame(animate);
 
+    // 1. Existing Mouse Rotation Logic
     const targetRotY = mouseX * Math.PI; 
     const targetRotX = mouseY * Math.PI;
-
     cardPack.rotation.y += (targetRotY - cardPack.rotation.y) * 0.05;
     cardPack.rotation.x += (targetRotX - cardPack.rotation.x) * 0.05;
+
+    // 2. Add a gentle "Floating" effect (Sine wave)
+    // This keeps it "slightly up" but adds a premium feel
+    const time = Date.now() * 0.002;
+    cardPack.position.y = 0.5 + Math.sin(time) * 0.1; 
 
     renderer.render(scene, camera);
 }
