@@ -1,5 +1,7 @@
 const gameEngine = require('../engine/gameEngine');
 const moveService = require('../services/moveService');
+const roomService = require('../services/roomService');
+const aiService = require('../services/aiService');
 
 async function startGame(req,res,next){
 
@@ -104,6 +106,62 @@ async function submitAnswer(req,res,next){
 
 }
 
+async function getHint(req,res,next){
+
+   try{
+
+      const {roomId} = req.params;
+      const {playerId, playerInput} = req.body;
+
+      const room =
+      roomService.getRoom(roomId);
+
+      const playerState =
+      room?.gameState?.players?.[playerId];
+
+      if(!playerState){
+
+         throw new Error(
+            'Player not in active game'
+         );
+
+      }
+
+      const currentQuestionId =
+      playerState.deck[
+         playerState.currentIndex
+      ];
+
+      if(!currentQuestionId){
+
+         return res.json({
+            hint:null,
+            completed:true
+         });
+
+      }
+
+      const hintResult =
+      await aiService.getHint(
+         currentQuestionId,
+         playerInput || null
+      );
+
+      res.json({
+         questionId: currentQuestionId,
+         hint: hintResult.hint,
+         usedHint: true
+      });
+
+   }
+   catch(error){
+
+      next(error);
+
+   }
+
+}
+
 async function skipQuestion(req,res,next){
 
    try{
@@ -156,6 +214,7 @@ module.exports = {
    getState,
    getCurrentQuestion,
    submitAnswer,
+   getHint,
    skipQuestion,
    getMoves
 
