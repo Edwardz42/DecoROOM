@@ -4,6 +4,13 @@ const INDEX = 'gacha_questions';
 const INFERENCE_ID = 'gacha-inference';
 const THRESHOLD = 0.94;
 
+const STOP_WORDS = new Set([
+   'the', 'a', 'an', 'and', 'or', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'by', 'from',
+   'is', 'are', 'was', 'were', 'be', 'been', 'being', 'it', 'this', 'that', 'these', 'those',
+   'as', 'if', 'then', 'than', 'into', 'about', 'what', 'which', 'who', 'whom', 'when', 'where',
+   'why', 'how', 'does', 'do', 'did', 'can', 'could', 'should', 'would', 'will', 'just'
+]);
+
 let client;
 
 function getElasticClient() {
@@ -31,6 +38,105 @@ function ensureElasticConfig() {
    }
 }
 
+function normaliseTokens(text) {
+   return (text || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+}
+
+function keywordCoverage(referenceText, answerText) {
+   const refTokens = normaliseTokens(referenceText);
+   const answerTokens = new Set(normaliseTokens(answerText));
+
+   if (refTokens.length === 0) {
+      return 0;
+   }
+
+   const uniqueRef = [...new Set(refTokens)];
+   const covered = uniqueRef.filter((w) => answerTokens.has(w)).length;
+   return (covered / uniqueRef.length) * 100;
+}
+
+function normaliseSemanticScore(rawScore) {
+   // ES kNN score is not a direct percent. This mapping makes it conservative.
+   const s = Number(rawScore || 0);
+   const pct = ((s - 0.78) / 0.34) * 100;
+   return Math.max(0, Math.min(100, pct));
+}
+
+function isVagueAnswer(answerText) {
+   const a = (answerText || '').trim().toLowerCase();
+   if (!a) return true;
+
+   const knownVague = [
+      'to work',
+      'it works',
+      'for working',
+      'to make things work',
+      'to run things',
+      'manage things',
+      'handles stuff',
+      'does everything',
+   ];
+
+   if (knownVague.includes(a)) return true;
+
+   const words = a.split(/\s+/).filter(Boolean);
+   return words.length <= 3;
+}
+
+function evaluateAnswerQuality({
+   answerText,
+   questionText,
+   idealAnswer,
+   semanticRaw,
+}) {
+   const clean = (answerText || '').trim();
+   const words = clean.split(/\s+/).filter(Boolean);
+   const wordCount = words.length;
+
+   if (!clean) {
+      return {
+         score100: 0,
+         semanticPct: 0,
+         conceptPct: 0,
+         isCorrect: false,
+      };
+   }
+
+   const semanticPct = normaliseSemanticScore(semanticRaw);
+   const idealCoveragePct = keywordCoverage(idealAnswer, clean);
+   const questionCoveragePct = keywordCoverage(questionText, clean);
+
+   const lengthPct = Math.min(100, (wordCount / 24) * 100);
+   const conceptPct = (idealCoveragePct * 0.85) + (questionCoveragePct * 0.15);
+
+   let score100 =
+      (semanticPct * 0.50) +
+      (conceptPct * 0.40) +
+      (lengthPct * 0.10);
+
+   // Hard quality gates: short/vague answers should not pass.
+   if (wordCount < 4) score100 *= 0.45;
+   if (wordCount < 7) score100 *= 0.85;
+   if (conceptPct < 18) score100 *= 0.55;
+   if (isVagueAnswer(clean)) score100 = Math.min(score100, 20);
+
+   score100 = Math.max(0, Math.min(100, Math.round(score100)));
+
+   const isCorrect = score100 >= 62 && conceptPct >= 18 && wordCount >= 4;
+
+   return {
+      score100,
+      semanticPct,
+      conceptPct,
+      isCorrect,
+   };
+}
+
 async function gradeAnswer(questionId, playerInput) {
    try {
       ensureElasticConfig();
@@ -55,19 +161,36 @@ async function gradeAnswer(questionId, playerInput) {
                }
             }
          },
-         _source: ['question_id', 'ideal_answer', 'hint']
+         _source: ['question_id', 'question_text', 'ideal_answer', 'hint']
       });
 
       const hit = res.hits?.hits?.[0] || null;
-      const score = hit?._score || 0;
-      const isCorrect = score >= THRESHOLD;
+      const rawScore = hit?._score || 0;
+      const idealAnswer = hit?._source?.ideal_answer || '';
+      const questionText = hit?._source?.question_text || '';
+
+      const judged = evaluateAnswerQuality({
+         answerText: playerInput,
+         questionText,
+         idealAnswer,
+         semanticRaw: rawScore,
+      });
+
+      const score = judged.score100 / 100;
+      const isCorrect = judged.isCorrect;
 
       return {
          isCorrect,
          score,
+         rawScore,
          threshold: THRESHOLD,
          matchedQuestionId: hit?._source?.question_id || null,
-         idealAnswer: hit?._source?.ideal_answer || null
+         idealAnswer: idealAnswer || null,
+         diagnostics: {
+            semanticPct: judged.semanticPct,
+            conceptPct: judged.conceptPct,
+            score100: judged.score100,
+         }
       };
    } catch (error) {
       console.error('AI grading failed:', error.message);
@@ -181,33 +304,36 @@ async function gradeAnswerByText(questionText, answerText) {
          index: INDEX,
          size: 1,
          query: { match: { question_text: questionText } },
-         _source: ['question_id'],
+         _source: ['question_id', 'ideal_answer', 'question_text'],
       });
 
-      const questionId = qRes.hits?.hits?.[0]?._source?.question_id;
+      const matched = qRes.hits?.hits?.[0]?._source || null;
+      const questionId = matched?.question_id;
       if (!questionId) throw new Error('QUESTION_NOT_FOUND');
 
       const result = await gradeAnswer(questionId, answerText);
       const score = Math.round(result.score * 100);
-      const userCorrect = score >= 60;
+      const userCorrect = score >= 62;
       return {
          score,
-         feedback: score >= 80
+         feedback: score >= 85
             ? `Excellent answer! (${score}/100)`
-            : score >= 60
+            : score >= 62
             ? `Good answer! (${score}/100)`
             : `Needs improvement (${score}/100). Try to cover more key concepts.`,
-         isCorrect: userCorrect,
+         isCorrect: result.isCorrect && userCorrect,
       };
    } catch {
       // Elasticsearch not available — fall back to keyword scoring
       const score = keywordScore(questionText, answerText);
+      const wordCount = answerText.trim().split(/\s+/).filter(Boolean).length;
+      const strictScore = wordCount < 4 ? Math.min(score, 25) : score;
       return {
-         score,
-         feedback: score >= 60
-            ? `Good answer! (${score}/100)`
-            : `Partial answer (${score}/100). Be more thorough.`,
-         isCorrect: score >= 60,
+         score: strictScore,
+         feedback: strictScore >= 62
+            ? `Good answer! (${strictScore}/100)`
+            : `Partial answer (${strictScore}/100). Be more thorough and specific.`,
+         isCorrect: strictScore >= 62 && wordCount >= 4,
       };
    }
 }

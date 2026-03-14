@@ -13,6 +13,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorMiddleware'
 
 const app = express();
 const PORT = process.env.PORT || 3005;
+const BOOT_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 /* ======================
    Middleware
@@ -30,6 +31,7 @@ app.get('/', (req, res) => {
     name: "Knowledge Battle API",
     status: "running",
     version: "1.0",
+    bootId: BOOT_ID,
     endpoints: {
       health: "/health",
       rooms: "/api/rooms",
@@ -48,7 +50,17 @@ app.get('/health', (req, res) => {
   res.json({
     ok: true,
     message: 'Backend running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    bootId: BOOT_ID
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    message: 'Backend running',
+    timestamp: new Date().toISOString(),
+    bootId: BOOT_ID
   });
 });
 

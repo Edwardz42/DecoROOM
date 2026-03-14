@@ -2,13 +2,19 @@ const { randomUUID } = require('crypto');
 
 const rooms = {};
 
+function normalizeRoomId(roomId) {
+  return String(roomId || '').trim().toUpperCase();
+}
+
 function createNewRoom(hostPlayerId) {
   if (!hostPlayerId) {
     throw new Error('hostPlayerId required');
   }
 
+  const id = randomUUID().slice(0, 8).toUpperCase();
+
   const room = {
-    id: randomUUID().slice(0,8),   
+    id,
     hostPlayerId,
     guestPlayerId: null,
     status: 'LOBBY',
@@ -25,12 +31,13 @@ function createNewRoom(hostPlayerId) {
     gameState: null
   };
 
-  rooms[room.id] = room;
+  rooms[id] = room;
   return room;
 }
 
 function getRoom(roomId) {
-  const room = rooms[roomId];
+  const normalized = normalizeRoomId(roomId);
+  const room = rooms[normalized] || rooms[String(roomId || '').trim()];
 
   if (!room) {
     throw new Error('Room not found');

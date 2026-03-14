@@ -17,12 +17,32 @@ function saveUnlockedIds(ids) {
   localStorage.setItem("unlockedQuestionIds", JSON.stringify(unique));
 }
 
+function getDeckIds() {
+  try {
+    return JSON.parse(localStorage.getItem("selectedDeckIds") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveDeckIds(ids) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  localStorage.setItem("selectedDeckIds", JSON.stringify(unique));
+}
+
 function formatMs(ms) {
   if (!ms || Number.isNaN(ms)) return "--:--";
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(totalSeconds / 60);
   const s = String(totalSeconds % 60).padStart(2, "0");
   return `${m}:${s}`;
+}
+
+function emitGachaSoundHook(type, rarity = null, index = null) {
+  // Hook point for external audio engine: listen to `window` event `gacha:sound`.
+  window.dispatchEvent(new CustomEvent("gacha:sound", {
+    detail: { type, rarity, index, at: Date.now() },
+  }));
 }
 
 // ── LOBBY ──────────────────────────────────────────────────────────────────
@@ -171,8 +191,26 @@ function RoomCreateScreen({ onNav }) {
             <PlayerChip name={guestJoined ? "Opponent" : "Waiting..."} status={guestJoined ? "JOINED" : "JOINING"} color={guestJoined ? COLORS.green : COLORS.textDim} pulse={!guestJoined} />
           </div>
           <Divider />
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+            <button
+              onClick={() => onNav("room-join")}
+              style={{
+                background: "none",
+                border: "none",
+                color: "rgba(255,255,255,0.7)",
+                cursor: "pointer",
+                fontFamily: MONO,
+                fontSize: "0.72rem",
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                padding: 0,
+              }}
+            >
+              Have a code instead? Join Room
+            </button>
+          </div>
           <div style={{ paddingTop: 12 }}>
-            <ActionBtn onClick={() => onNav("pick-questions")} label="Continue to Deck Pick ->" accent={COLORS.accent} disabled={!guestJoined} flex />
+            <ActionBtn onClick={() => onNav("room-ready")} label="Continue to Ready Room ->" accent={COLORS.accent} disabled={!guestJoined} flex />
           </div>
         </Panel>
       </div>
@@ -203,7 +241,7 @@ function RoomJoinScreen({ onNav }) {
       } else {
         localStorage.setItem("roomId", room.id);
         localStorage.setItem("roomRole", "guest");
-        onNav("pick-questions");
+        onNav("room-ready");
       }
     } catch {
       setError("Could not connect to server. Is backend running?");
@@ -360,9 +398,11 @@ function RoomReadyScreen({ onNav }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+  const [submittingDeck, setSubmittingDeck] = useState(false);
 
   const roomId = localStorage.getItem("roomId");
   const playerId = localStorage.getItem("playerId");
+  const savedDeck = getDeckIds();
 
   const refresh = async () => {
     if (!roomId) return;
@@ -388,6 +428,28 @@ function RoomReadyScreen({ onNav }) {
     const poll = setInterval(refresh, 1500);
     return () => clearInterval(poll);
   }, []);
+
+  const submitSavedDeck = async () => {
+    if (savedDeck.length !== 8) {
+      setError("Build and save an 8-card deck first in Collection/Deckbuilder.");
+      return;
+    }
+    setSubmittingDeck(true);
+    setError("");
+    try {
+      const r = await fetch(`/api/rooms/${roomId}/questions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, questionIds: savedDeck }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || "Failed to submit deck");
+      await refresh();
+    } catch (e) {
+      setError(e.message || "Failed to submit deck");
+    }
+    setSubmittingDeck(false);
+  };
 
   const setReady = async (ready) => {
     try {
@@ -454,6 +516,9 @@ function RoomReadyScreen({ onNav }) {
 
           <div style={{ display: "grid", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
+              <span>Saved local deck</span><span style={{ color: savedDeck.length === 8 ? COLORS.green : COLORS.red }}>{savedDeck.length}/8</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
               <span>Host deck submitted</span><span style={{ color: hostDeckReady ? COLORS.green : COLORS.red }}>{hostDeckReady ? "YES" : "NO"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
@@ -470,6 +535,7 @@ function RoomReadyScreen({ onNav }) {
           <Divider />
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <ActionBtn onClick={submitSavedDeck} label={submittingDeck ? "Submitting Deck..." : "Submit Saved Deck"} accent={COLORS.accent} disabled={savedDeck.length !== 8 || submittingDeck} />
             <ActionBtn onClick={() => setReady(!meReady)} label={meReady ? "Unready" : "Ready"} accent={meReady ? COLORS.gold : COLORS.accent} />
             {isHost ? (
               <ActionBtn onClick={startRoom} label={starting ? "Starting..." : "Start Room"} accent={COLORS.green} disabled={!canStart || starting} />
@@ -528,12 +594,39 @@ function ResultsScreen({ onNav }) {
 // ── GACHA ─────────────────────────────────────────────────────────────────
 function GachaScreen({ onNav }) {
   const [opening, setOpening] = useState(false);
+  const [packCards, setPackCards] = useState([]);
+  const [flippedCount, setFlippedCount] = useState(0);
   const [revealed, setRevealed] = useState([]);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
+  const [starterClaimed, setStarterClaimed] = useState(localStorage.getItem("starterPackClaimed") === "1");
+  const [showStarterBanner, setShowStarterBanner] = useState(false);
 
-  const openPack = async () => {
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const ts = Number(localStorage.getItem("lastPackOpenedAt") || 0);
+      const left = Math.max(0, 60000 - (Date.now() - ts));
+      setCooldownLeft(left);
+    }, 250);
+    return () => clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    // First-time experience: auto-open starter pack if user has no cards.
+    const unlocked = getUnlockedIds();
+    if (unlocked.length === 0 && !opening && revealed.length === 0 && packCards.length === 0) {
+      openPack(true);
+    }
+  }, []);
+
+  const openPack = async (isStarter = false) => {
+    if (!isStarter && cooldownLeft > 0) return;
     setOpening(true);
+    setFlippedCount(0);
+    setPackCards([]);
     setRevealed([]);
+    emitGachaSoundHook("pack-open", null, null);
 
+    let cards = [];
     try {
       const playerId = localStorage.getItem("playerId") || "anonymous";
       const r = await fetch("/api/gacha/open-pack", {
@@ -542,54 +635,136 @@ function GachaScreen({ onNav }) {
         body: JSON.stringify({ playerId }),
       });
       const data = await r.json();
-      const cards = (data.pack || []).map(normaliseQuestion);
+      cards = (data.pack || []).map(normaliseQuestion);
 
       const unlocked = getUnlockedIds();
       saveUnlockedIds([...unlocked, ...cards.map(c => c.id)]);
-
-      cards.forEach((q, i) => {
-        setTimeout(() => setRevealed(prev => [...prev, q]), i * 320 + 300);
-      });
     } catch {
       const pool = [...MOCK_COLLECTION].sort(() => Math.random() - 0.5).slice(0, 8);
       const unlocked = getUnlockedIds();
       saveUnlockedIds([...unlocked, ...pool.map(c => c.id)]);
-      pool.forEach((q, i) => {
-        setTimeout(() => setRevealed(prev => [...prev, q]), i * 320 + 300);
-      });
+      cards = pool;
     }
 
-    setTimeout(() => setOpening(false), 8 * 320 + 400);
+    setPackCards(cards);
+    cards.forEach((q, i) => {
+      setTimeout(() => {
+        setFlippedCount(i + 1);
+        setRevealed(cards.slice(0, i + 1));
+        emitGachaSoundHook("card-flip", q.diff, i);
+      }, i * 280 + 260);
+    });
+
+    if (isStarter && !starterClaimed) {
+      localStorage.setItem("starterPackClaimed", "1");
+      setStarterClaimed(true);
+      setShowStarterBanner(true);
+      setTimeout(() => setShowStarterBanner(false), 3800);
+    }
+
+    localStorage.setItem("lastPackOpenedAt", String(Date.now()));
+    setTimeout(() => {
+      setOpening(false);
+      emitGachaSoundHook("pack-complete", null, null);
+    }, 8 * 280 + 420);
   };
+
+  const ringSize = 86;
+  const ringRadius = 34;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const cooldownProgress = Math.max(0, Math.min(1, cooldownLeft / 60000));
+  const ringOffset = ringCircumference * (1 - (1 - cooldownProgress));
 
   return (
     <GameLayout title="GACHA" onBack={() => onNav("lobby")}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        {showStarterBanner && (
+          <div style={{ marginBottom: 12, padding: "10px 14px", border: `1px solid ${COLORS.green}`, background: "rgba(80,250,123,0.12)", borderRadius: 6, color: COLORS.green, fontFamily: MONO, fontSize: "0.72rem", letterSpacing: 2, textTransform: "uppercase" }}>
+            Starter Pack Claimed - 8 cards unlocked
+          </div>
+        )}
+
+        {starterClaimed && !showStarterBanner && (
+          <div style={{ marginBottom: 12, padding: "10px 14px", border: `1px solid ${COLORS.border}`, background: "rgba(74,144,226,0.08)", borderRadius: 6, color: COLORS.accent, fontFamily: MONO, fontSize: "0.68rem", letterSpacing: 2, textTransform: "uppercase" }}>
+            Starter Pack Claimed
+          </div>
+        )}
+
         <Panel style={{ textAlign: "center", padding: "36px 24px", marginBottom: 24 }}>
           <div style={{ fontSize: 64, marginBottom: 12, lineHeight: 1 }}>📦</div>
           <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 20, color: COLORS.accent, letterSpacing: 4, marginBottom: 6 }}>QUESTION PACK</div>
-          <div style={{ fontSize: "0.7rem", color: COLORS.textMuted, letterSpacing: 2, marginBottom: 28 }}>Harder cards are rarer. Pull to unlock your battle deck.</div>
-          <ActionBtn onClick={openPack} label={opening ? "Opening..." : "Open Pack"} accent={COLORS.accent} disabled={opening} />
+          <div style={{ fontSize: "0.7rem", color: COLORS.textMuted, letterSpacing: 2, marginBottom: 16 }}>Hard cards are rare. New pack every 60 seconds.</div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
+            <div style={{ position: "relative", width: ringSize, height: ringSize }}>
+              <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
+                <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} stroke="rgba(255,255,255,0.15)" strokeWidth="7" fill="none" />
+                <circle
+                  cx={ringSize / 2}
+                  cy={ringSize / 2}
+                  r={ringRadius}
+                  stroke={cooldownLeft > 0 ? COLORS.gold : COLORS.green}
+                  strokeWidth="7"
+                  fill="none"
+                  strokeLinecap="round"
+                  transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                  strokeDasharray={ringCircumference}
+                  strokeDashoffset={ringOffset}
+                  style={{ transition: "stroke-dashoffset 0.2s linear, stroke 0.2s linear" }}
+                />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MONO, color: cooldownLeft > 0 ? COLORS.gold : COLORS.green, fontSize: "0.72rem", fontWeight: 800 }}>
+                {cooldownLeft > 0 ? `${Math.ceil(cooldownLeft / 1000)}s` : "READY"}
+              </div>
+            </div>
+            <ActionBtn onClick={() => openPack(false)} label={opening ? "Opening..." : cooldownLeft > 0 ? "On Cooldown" : "Open Pack"} accent={COLORS.accent} disabled={opening || cooldownLeft > 0} />
+          </div>
         </Panel>
 
-        {revealed.length > 0 && (
+        {packCards.length > 0 && (
           <>
             <Label>Cards Revealed ({revealed.length})</Label>
-            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-              {revealed.map((q, i) => (
-                <div key={i} style={{ background: "rgba(13,26,45,0.75)", border: `1px solid ${COLORS.border}`, borderRadius: 5, padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 12, animation: "cardSlide 0.35s ease" }}>
-                  <div style={{ flex: 1, fontSize: "0.82rem", color: COLORS.text, fontFamily: MONO, lineHeight: 1.5 }}>{q.q}</div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0, flexDirection: "column", alignItems: "flex-end" }}>
+            <div style={{ position: "relative", height: 300, marginTop: 12, border: `1px solid ${COLORS.border}`, borderRadius: 8, background: "rgba(9, 14, 26, 0.72)", overflow: "hidden" }}>
+              {packCards.map((q, i) => {
+                const isFlipped = i < flippedCount;
+                const col = i % 4;
+                const row = Math.floor(i / 4);
+                const rarityColor = q.diff === "hard" ? COLORS.red : q.diff === "medium" ? COLORS.gold : COLORS.green;
+
+                const left = isFlipped ? `calc(4% + ${col * 24}%)` : `calc(50% - 72px + ${Math.min(i, 6) * 1.2}px)`;
+                const top = isFlipped ? `${18 + row * 42}%` : `calc(50% - 56px - ${Math.min(i, 6) * 0.7}px)`;
+                const rotate = isFlipped ? "rotateY(0deg)" : "rotateY(180deg)";
+
+                return (
+                  <div key={i} style={{ position: "absolute", width: 144, height: 108, left, top, transform: `${rotate} scale(${isFlipped ? 1 : 0.98})`, transformStyle: "preserve-3d", transition: `all 420ms cubic-bezier(0.2,0.9,0.2,1), transform 460ms ease ${i * 40}ms`, borderRadius: 7, border: `1px solid ${isFlipped ? rarityColor : "rgba(255,255,255,0.18)"}`, background: isFlipped ? `linear-gradient(140deg, ${rarityColor}25 0%, rgba(8,12,20,0.95) 75%)` : "linear-gradient(140deg, rgba(39,49,70,0.92) 0%, rgba(12,16,26,0.95) 75%)", boxShadow: isFlipped ? `0 0 18px ${rarityColor}55` : "0 0 8px rgba(0,0,0,0.4)", padding: 10, boxSizing: "border-box", backfaceVisibility: "hidden" }}>
+                    <div style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: 2, color: isFlipped ? rarityColor : COLORS.textMuted, textTransform: "uppercase", marginBottom: 8 }}>
+                      {isFlipped ? q.diff : "unknown"}
+                    </div>
+                    <div style={{ fontFamily: MONO, fontSize: "0.64rem", color: COLORS.text, lineHeight: 1.35, height: 48, overflow: "hidden" }}>
+                      {isFlipped ? q.q : "????????????"}
+                    </div>
+                    <div style={{ position: "absolute", right: 8, bottom: 8, fontFamily: MONO, fontSize: "0.52rem", color: COLORS.textMuted, letterSpacing: 1 }}>
+                      #{i + 1}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {revealed.length > 0 && (
+              <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                {revealed.map((q, i) => (
+                  <div key={`${q.id}-${i}`} style={{ background: "rgba(13,26,45,0.72)", border: `1px solid ${COLORS.border}`, borderRadius: 5, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ flex: 1, fontSize: "0.72rem", color: COLORS.text, fontFamily: MONO, lineHeight: 1.4 }}>{q.q}</div>
                     <TopicTag topic={q.topic} />
                     <DiffTag diff={q.diff} />
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
-      <style>{"@keyframes cardSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}"}</style>
     </GameLayout>
   );
 }
@@ -602,6 +777,8 @@ function DeckbuilderScreen({ onNav }) {
 
   useEffect(() => {
     const unlocked = new Set(getUnlockedIds());
+    const saved = getDeckIds();
+    setDeck(saved);
     fetch("/api/gacha/questions")
       .then(r => r.json())
       .then(qs => setPool(qs.map(normaliseQuestion).filter(q => unlocked.has(q.id))))
@@ -622,6 +799,12 @@ function DeckbuilderScreen({ onNav }) {
   deckCards.forEach(q => {
     topicCounts[q.topic] = (topicCounts[q.topic] || 0) + 1;
   });
+
+  const saveDeck = () => {
+    saveDeckIds(deck);
+  };
+
+  const canBattle = deck.length === 8;
 
   return (
     <GameLayout title="DECKBUILDER" onBack={() => onNav("lobby")}>
@@ -666,6 +849,13 @@ function DeckbuilderScreen({ onNav }) {
                 </div>
               </div>
             )}
+
+            <Divider />
+            <div style={{ display: "grid", gap: 8 }}>
+              <ActionBtn onClick={saveDeck} label="Save Deck" accent={COLORS.accent} disabled={!canBattle} flex />
+              <ActionBtn onClick={() => onNav("solo-battle")} label="Play Solo (Self 1v1)" accent={COLORS.gold} disabled={!canBattle} flex />
+              <ActionBtn onClick={() => onNav("room-create")} label="Play Multiplayer" accent={COLORS.green} disabled={!canBattle} flex />
+            </div>
           </Panel>
         </div>
       </div>

@@ -12,15 +12,29 @@ function getUnlockedSet() {
   }
 }
 
+function getDeckIds() {
+  try {
+    return JSON.parse(localStorage.getItem("selectedDeckIds") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveDeckIds(ids) {
+  localStorage.setItem("selectedDeckIds", JSON.stringify([...new Set(ids)]));
+}
+
 export default function CollectionPage({ onNav }) {
   const [filterTopic, setFilterTopic] = useState("ALL");
   const [filterDiff,  setFilterDiff]  = useState("ALL");
   const [collection, setCollection] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [unlocked, setUnlocked] = useState(new Set());
+  const [deck, setDeck] = useState([]);
 
   useEffect(() => {
     setUnlocked(getUnlockedSet());
+    setDeck(getDeckIds());
     fetch("/api/gacha/questions")
       .then(r => r.json())
       .then(qs => setCollection(qs.map(normaliseQuestion)))
@@ -34,6 +48,20 @@ export default function CollectionPage({ onNav }) {
     (filterTopic === "ALL" || q.topic === filterTopic) &&
     (filterDiff  === "ALL" || q.diff  === filterDiff)
   );
+
+  const toggleDeck = (id) => {
+    if (deck.includes(id)) {
+      setDeck(deck.filter(x => x !== id));
+      return;
+    }
+    if (deck.length < 8) {
+      setDeck([...deck, id]);
+    }
+  };
+
+  const persistDeck = () => {
+    saveDeckIds(deck);
+  };
 
   return (
     <GameLayout title="COLLECTION" onBack={() => onNav("lobby")}>
@@ -63,7 +91,17 @@ export default function CollectionPage({ onNav }) {
 
         {/* Count */}
         <div style={{ fontSize: "0.7rem", color: COLORS.textMuted, marginBottom: 16, fontFamily: MONO, letterSpacing: 1 }}>
-          {loading ? "Loading..." : `${unlocked.size} unlocked / ${collection.length} total · ${visible.length} shown`}
+          {loading ? "Loading..." : `${unlocked.size} unlocked / ${collection.length} total · ${visible.length} shown · deck ${deck.length}/8`}
+        </div>
+
+        <div style={{ marginBottom: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={persistDeck}
+            disabled={deck.length !== 8}
+            style={{ background: deck.length === 8 ? COLORS.accent : "transparent", border: `1px solid ${deck.length === 8 ? COLORS.accent : COLORS.border}`, borderRadius: 4, color: deck.length === 8 ? "#000" : COLORS.textMuted, padding: "8px 14px", fontFamily: MONO, fontSize: "0.7rem", letterSpacing: 2, cursor: deck.length === 8 ? "pointer" : "not-allowed" }}
+          >
+            Save to Deckbuilder
+          </button>
         </div>
 
         {/* Cards */}
@@ -82,6 +120,14 @@ export default function CollectionPage({ onNav }) {
               <div style={{ flex: 1, fontSize: "0.8rem", color: COLORS.text, fontFamily: MONO, lineHeight: 1.5 }}>
                 {isUnlocked ? q.q : "Locked question"}
               </div>
+              {isUnlocked && (
+                <button
+                  onClick={() => toggleDeck(q.id)}
+                  style={{ background: deck.includes(q.id) ? COLORS.accentDim : "transparent", border: `1px solid ${deck.includes(q.id) ? COLORS.accent : COLORS.border}`, borderRadius: 4, color: deck.includes(q.id) ? COLORS.accent : COLORS.textMuted, padding: "6px 8px", fontFamily: MONO, fontSize: "0.62rem", letterSpacing: 1, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  {deck.includes(q.id) ? "In Deck" : "Add"}
+                </button>
+              )}
               <TopicTag topic={q.topic} />
               <DiffTag  diff={q.diff}  />
             </div>

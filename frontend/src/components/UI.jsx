@@ -6,15 +6,24 @@ const GLOW = (col = COLORS.accent, str = 0.4) => `0 0 20px rgba(74,144,226,${str
 
 // ── Master page shell – matches landing.html shell (radial bg, top-left logo, top-right nav) ─–
 export function GameLayout({ title, onBack, children }) {
+  const goHome = () => {
+    window.location.href = "./landing.html";
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: COLORS.bgGrad, fontFamily: MONO, boxSizing: "border-box", position: "relative" }}>
       <style>{FONTS}</style>
 
       {/* Top-left logo – mirrors landing <CS> prefix style */}
-      <div style={{ position: "fixed", top: 28, left: 48, zIndex: 200, display: "flex", alignItems: "center", gap: 12, pointerEvents: "none" }}>
+      <button
+        type="button"
+        onClick={goHome}
+        style={{ position: "fixed", top: 28, left: 48, zIndex: 200, display: "flex", alignItems: "center", gap: 12, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+        aria-label="Go to main gacha page"
+      >
         <span style={{ color: COLORS.accent, fontWeight: 800, fontSize: "1.5rem", textShadow: `0 0 10px rgba(74,144,226,0.4)` }}>&lt;CS&gt;</span>
         <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 400, fontSize: "1.5rem", textTransform: "uppercase", letterSpacing: 4 }}>Gacha!</span>
-      </div>
+      </button>
 
       {/* Top-right nav – mirrors landing .nav-right */}
       <div style={{ position: "fixed", top: 36, right: 48, zIndex: 200, display: "flex", alignItems: "center", gap: 20 }}>
