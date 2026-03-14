@@ -22,8 +22,13 @@ router.get(
 );
 
 router.post(
-   '/answer',
+   '/:roomId/answer',
    gameController.submitAnswer
+);
+
+router.post(
+   '/:roomId/hint',
+   gameController.getHint
 );
 
 router.get(
