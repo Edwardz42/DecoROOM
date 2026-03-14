@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { COLORS, FONTS, MOCK_COLLECTION, LEADERBOARD, TOPICS, diffColor, diffBg } from "../constants";
 import { GameLayout, Panel, Label, Divider, ActionBtn, TopicTag, DiffTag, FilterChip, PlayerChip, QuestionRow } from "../components/UI";
 
@@ -60,7 +60,12 @@ function LobbyScreen({ onNav }) {
 
 // ── ROOM CREATE ────────────────────────────────────────────────────────────
 function RoomCreateScreen({ onNav }) {
-  const roomCode = "XK-4729";
+  const [roomCode, setRoomCode] = useState("");
+
+  useEffect(() => {
+    try {
+      const res = await fetch("/rooms", { method: "POST" });
+  
   return (
     <GameLayout title="CREATE ROOM" onBack={() => onNav("lobby")}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>

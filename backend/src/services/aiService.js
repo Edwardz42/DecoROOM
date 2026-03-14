@@ -4,15 +4,26 @@ const INDEX = 'gacha_questions';
 const INFERENCE_ID = 'gacha-inference';
 const THRESHOLD = 0.94;
 
-const client = new Client({
-   cloud: {
-      id: process.env.ELASTIC_CLOUD_ID
-   },
-   auth: {
-      username: process.env.ELASTIC_USERNAME,
-      password: process.env.ELASTIC_PASSWORD
+let client;
+
+function getElasticClient() {
+   if (client) return client;
+
+   const { ELASTIC_CLOUD_ID, ELASTIC_USERNAME, ELASTIC_PASSWORD } = process.env;
+   if (!ELASTIC_CLOUD_ID || !ELASTIC_USERNAME || !ELASTIC_PASSWORD) {
+      throw new Error('ELASTIC_CONFIG_MISSING');
    }
-});
+
+   client = new Client({
+      cloud: { id: ELASTIC_CLOUD_ID },
+      auth: {
+         username: ELASTIC_USERNAME,
+         password: ELASTIC_PASSWORD
+      }
+   });
+
+   return client;
+}
 
 function ensureElasticConfig() {
    if (!process.env.ELASTIC_CLOUD_ID || !process.env.ELASTIC_USERNAME || !process.env.ELASTIC_PASSWORD) {
@@ -24,7 +35,7 @@ async function gradeAnswer(questionId, playerInput) {
    try {
       ensureElasticConfig();
 
-      const res = await client.search({
+      const res = await getElasticClient().search({
          index: INDEX,
          query: {
             knn: {
@@ -68,7 +79,7 @@ async function getQuestion(questionId) {
    try {
       ensureElasticConfig();
 
-      const res = await client.search({
+      const res = await getElasticClient().search({
          index: INDEX,
          size: 1,
          query: {
@@ -113,7 +124,7 @@ async function getHint(questionId, playerInput = null) {
          };
       }
 
-      const res = await client.search({
+      const res = await getElasticClient().search({
          index: INDEX,
          query: {
             knn: {

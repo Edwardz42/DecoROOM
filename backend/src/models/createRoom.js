@@ -1,7 +1,17 @@
 const { ROOM_STATUS, GAME_PHASE } = require('../constants/gameConstants');
 
 function generateId() {
-  return Math.random().toString(36).substring(2, 10);
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const digits = "0123456789";
+  let id = "";
+  for (let i = 0; i < 2; i++) {
+    id += letters.charAt(Math.floor(Math.random() * letters.length));
+  }
+  id += '-';
+  for (let i = 0; i < 4; i++) {
+    id += digits.charAt(Math.floor(Math.random() * digits.length));
+  }
+  return id;
 }
 
 function createRoom(hostPlayerId) {

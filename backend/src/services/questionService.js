@@ -1,14 +1,25 @@
 const { Client } = require('@elastic/elasticsearch');
 
-const client = new Client({
-   cloud: {
-      id: process.env.ELASTIC_CLOUD_ID
-   },
-   auth: {
-      username: process.env.ELASTIC_USERNAME,
-      password: process.env.ELASTIC_PASSWORD
+let client;
+
+function getElasticClient() {
+   if (client) return client;
+
+   const { ELASTIC_CLOUD_ID, ELASTIC_USERNAME, ELASTIC_PASSWORD } = process.env;
+   if (!ELASTIC_CLOUD_ID || !ELASTIC_USERNAME || !ELASTIC_PASSWORD) {
+      throw new Error('ELASTIC_CONFIG_MISSING');
    }
-});
+
+   client = new Client({
+      cloud: { id: ELASTIC_CLOUD_ID },
+      auth: {
+         username: ELASTIC_USERNAME,
+         password: ELASTIC_PASSWORD
+      }
+   });
+
+   return client;
+}
 
 function normalizeQuestionId(questionRef) {
    if (typeof questionRef === 'string') {
@@ -41,7 +52,7 @@ function validateQuestionSet(questionIds) {
 }
 
 async function getAllQuestions(size = 100) {
-   const res = await client.search({
+   const res = await getElasticClient().search({
       index: 'gacha_questions',
       size,
       query: {
