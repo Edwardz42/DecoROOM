@@ -1,0 +1,49 @@
+const ROOM_STATUS = {
+  LOBBY: 'LOBBY',
+  PLAYING: 'PLAYING',
+  FINISHED: 'FINISHED'
+};
+
+const GAME_PHASE = {
+  LOBBY: 'LOBBY',
+  QUESTION_SELECTION: 'QUESTION_SELECTION',
+  READY_CHECK: 'READY_CHECK',
+  IN_PROGRESS: 'IN_PROGRESS',
+  FINISHED: 'FINISHED'
+};
+
+const MOVE_TYPE = {
+  READY: 'READY',
+  START: 'START',
+  SUBMIT_QUESTION_SET: 'SUBMIT_QUESTION_SET',
+  ANSWER_QUESTION: 'ANSWER_QUESTION',
+  USE_HINT: 'USE_HINT',
+  NEXT_QUESTION: 'NEXT_QUESTION',
+  END_GAME: 'END_GAME'
+};
+
+const DIFFICULTY = {
+  EASY: 'easy',
+  MEDIUM: 'medium',
+  HARD: 'hard'
+};
+
+const DIFFICULTY_POINTS = {
+  easy: 1,
+  medium: 3,
+  hard: 5
+};
+
+const PACK_TYPE = {
+  BASIC: 'basic',
+  ADVANCED: 'advanced'
+};
+
+module.exports = {
+  ROOM_STATUS,
+  GAME_PHASE,
+  MOVE_TYPE,
+  DIFFICULTY,
+  DIFFICULTY_POINTS,
+  PACK_TYPE
+};
