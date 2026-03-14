@@ -1,22 +1,37 @@
 import { useState } from "react";
 import { COLORS, FONTS, diffColor, diffBg } from "../constants";
 
+const MONO = "'JetBrains Mono', monospace";
+const GLOW = (col = COLORS.accent, str = 0.4) => `0 0 20px rgba(74,144,226,${str})`;
+
+// ── Master page shell – matches landing.html shell (radial bg, top-left logo, top-right nav) ─–
 export function GameLayout({ title, onBack, children }) {
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.bg, fontFamily: "'Space Mono', monospace", padding: "20px 24px", boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100vh", background: COLORS.bgGrad, fontFamily: MONO, boxSizing: "border-box", position: "relative" }}>
       <style>{FONTS}</style>
-      <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
-          <button
-            onClick={onBack}
-            style={{ background: "transparent", border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: "8px 14px", color: COLORS.textMuted, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono', monospace", letterSpacing: 1 }}
-          >
-            ← BACK
-          </button>
-          <div style={{ fontFamily: "'Orbitron', sans-serif", fontSize: 18, fontWeight: 900, color: COLORS.text, letterSpacing: 3 }}>
-            {title}
-          </div>
-        </div>
+
+      {/* Top-left logo – mirrors landing <CS> prefix style */}
+      <div style={{ position: "fixed", top: 28, left: 48, zIndex: 200, display: "flex", alignItems: "center", gap: 12, pointerEvents: "none" }}>
+        <span style={{ color: COLORS.accent, fontWeight: 800, fontSize: "1.5rem", textShadow: `0 0 10px rgba(74,144,226,0.4)` }}>&lt;CS&gt;</span>
+        <span style={{ color: "rgba(255,255,255,0.9)", fontWeight: 400, fontSize: "1.5rem", textTransform: "uppercase", letterSpacing: 4 }}>Gacha!</span>
+      </div>
+
+      {/* Top-right nav – mirrors landing .nav-right */}
+      <div style={{ position: "fixed", top: 36, right: 48, zIndex: 200, display: "flex", alignItems: "center", gap: 20 }}>
+        <button
+          onClick={onBack}
+          style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", fontFamily: MONO, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: 2, cursor: "pointer" }}
+          onMouseEnter={e => e.target.style.color = COLORS.accent}
+          onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.6)"}
+        >
+          ← Back
+        </button>
+        <span style={{ color: "rgba(255,255,255,0.2)" }}>|</span>
+        <span style={{ color: COLORS.accent, fontWeight: 800, fontSize: "0.85rem", letterSpacing: 3, textTransform: "uppercase" }}>{title}</span>
+      </div>
+
+      {/* Page content */}
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "100px 24px 48px" }}>
         {children}
       </div>
     </div>
@@ -25,7 +40,14 @@ export function GameLayout({ title, onBack, children }) {
 
 export function Panel({ children, style }) {
   return (
-    <div style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 4, padding: 20, ...style }}>
+    <div style={{
+      background: "rgba(13,26,45,0.85)",
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 6,
+      padding: 24,
+      backdropFilter: "blur(4px)",
+      ...style
+    }}>
       {children}
     </div>
   );
@@ -33,17 +55,17 @@ export function Panel({ children, style }) {
 
 export function Label({ children }) {
   return (
-    <div style={{ fontSize: 10, color: COLORS.textMuted, letterSpacing: 4 }}>
+    <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", letterSpacing: 4, textTransform: "uppercase", fontFamily: MONO }}>
       {children}
     </div>
   );
 }
 
 export function Divider() {
-  return <div style={{ height: 1, background: COLORS.border, margin: "16px 0" }} />;
+  return <div style={{ height: 1, background: COLORS.border, margin: "18px 0" }} />;
 }
 
-export function ActionBtn({ onClick, label, accent, disabled, flex }) {
+export function ActionBtn({ onClick, label, accent = COLORS.accent, disabled, flex }) {
   const [hov, setHov] = useState(false);
   return (
     <button
@@ -52,18 +74,20 @@ export function ActionBtn({ onClick, label, accent, disabled, flex }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: disabled ? COLORS.surface : hov ? accent : "transparent",
-        border: `2px solid ${disabled ? COLORS.border : accent}`,
+        background: disabled ? "rgba(255,255,255,0.04)" : hov ? accent : "transparent",
+        border: `1px solid ${disabled ? "rgba(255,255,255,0.12)" : accent}`,
         borderRadius: 4,
-        padding: "14px 28px",
-        color: disabled ? COLORS.textMuted : COLORS.text,
+        padding: "13px 28px",
+        color: disabled ? "rgba(255,255,255,0.3)" : COLORS.text,
         cursor: disabled ? "not-allowed" : "pointer",
-        fontSize: 12,
-        letterSpacing: 2,
-        fontFamily: "'Space Mono', monospace",
-        fontWeight: 700,
+        fontSize: "0.75rem",
+        letterSpacing: 3,
+        fontFamily: MONO,
+        fontWeight: 800,
         width: flex ? "100%" : "auto",
         transition: "all 0.15s",
+        boxShadow: hov && !disabled ? GLOW() : "none",
+        textTransform: "uppercase",
       }}
     >
       {label}
@@ -73,7 +97,17 @@ export function ActionBtn({ onClick, label, accent, disabled, flex }) {
 
 export function TopicTag({ topic }) {
   return (
-    <span style={{ background: "#1e293b", border: `1px solid #334155`, borderRadius: 2, padding: "2px 8px", fontSize: 10, color: "#94a3b8", letterSpacing: 1, whiteSpace: "nowrap" }}>
+    <span style={{
+      background: "rgba(74,144,226,0.08)",
+      border: `1px solid rgba(74,144,226,0.3)`,
+      borderRadius: 3,
+      padding: "2px 8px",
+      fontSize: "0.6rem",
+      color: "rgba(74,144,226,0.9)",
+      letterSpacing: 1,
+      whiteSpace: "nowrap",
+      fontFamily: MONO,
+    }}>
       {topic}
     </span>
   );
@@ -81,7 +115,18 @@ export function TopicTag({ topic }) {
 
 export function DiffTag({ diff }) {
   return (
-    <span style={{ background: diffBg[diff], border: `1px solid ${diffColor[diff]}`, borderRadius: 2, padding: "2px 8px", fontSize: 10, color: diffColor[diff], letterSpacing: 1, textTransform: "uppercase", whiteSpace: "nowrap" }}>
+    <span style={{
+      background: diffBg[diff],
+      border: `1px solid ${diffColor[diff]}`,
+      borderRadius: 3,
+      padding: "2px 8px",
+      fontSize: "0.6rem",
+      color: diffColor[diff],
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      whiteSpace: "nowrap",
+      fontFamily: MONO,
+    }}>
       {diff}
     </span>
   );
@@ -92,7 +137,20 @@ export function FilterChip({ label, active, onClick, color }) {
   return (
     <button
       onClick={onClick}
-      style={{ background: active ? (color ? diffBg[label.toLowerCase()] || COLORS.accentDim : COLORS.accentDim) : "transparent", border: `1px solid ${active ? c : COLORS.border}`, borderRadius: 2, padding: "4px 12px", color: active ? c : COLORS.textMuted, cursor: "pointer", fontSize: 10, letterSpacing: 2, fontFamily: "'Space Mono', monospace", transition: "all 0.1s" }}
+      style={{
+        background: active ? `rgba(74,144,226,0.15)` : "transparent",
+        border: `1px solid ${active ? c : "rgba(255,255,255,0.15)"}`,
+        borderRadius: 3,
+        padding: "4px 14px",
+        color: active ? c : "rgba(255,255,255,0.4)",
+        cursor: "pointer",
+        fontSize: "0.65rem",
+        letterSpacing: 2,
+        fontFamily: MONO,
+        textTransform: "uppercase",
+        transition: "all 0.1s",
+        boxShadow: active ? `0 0 10px rgba(74,144,226,0.2)` : "none",
+      }}
     >
       {label}
     </button>
@@ -101,28 +159,59 @@ export function FilterChip({ label, active, onClick, color }) {
 
 export function PlayerChip({ name, status, color, pulse }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, animation: pulse ? "pulse 1.5s infinite" : "none" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{
+        width: 8, height: 8, borderRadius: "50%",
+        background: color,
+        boxShadow: `0 0 8px ${color}`,
+        animation: pulse ? "chipPulse 1.5s infinite" : "none",
+      }} />
       <div>
-        <div style={{ fontSize: 14, color: COLORS.text, fontWeight: 700 }}>{name}</div>
-        <div style={{ fontSize: 10, color, letterSpacing: 2 }}>{status}</div>
+        <div style={{ fontSize: "0.85rem", color: COLORS.text, fontWeight: 800, fontFamily: MONO }}>{name}</div>
+        <div style={{ fontSize: "0.6rem", color, letterSpacing: 2, fontFamily: MONO, textTransform: "uppercase" }}>{status}</div>
       </div>
+      <style>{`@keyframes chipPulse{0%,100%{opacity:1}50%{opacity:0.35}}`}</style>
     </div>
   );
 }
 
 export function QuestionRow({ q, selected, onToggle, disabled }) {
+  const [hov, setHov] = useState(false);
   return (
     <div
       onClick={disabled ? null : onToggle}
-      style={{ background: selected ? COLORS.accentDim : COLORS.card, border: `1px solid ${selected ? COLORS.accentGlow : COLORS.border}`, borderRadius: 4, padding: "12px 16px", cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 12, opacity: disabled ? 0.4 : 1, transition: "all 0.1s" }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: selected ? "rgba(74,144,226,0.12)" : hov ? "rgba(74,144,226,0.05)" : "rgba(13,26,45,0.7)",
+        border: `1px solid ${selected ? COLORS.accent : hov ? "rgba(74,144,226,0.35)" : COLORS.border}`,
+        borderRadius: 5,
+        padding: "12px 16px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        opacity: disabled ? 0.35 : 1,
+        transition: "all 0.12s",
+        boxShadow: selected ? `0 0 12px rgba(74,144,226,0.15)` : "none",
+      }}
     >
-      <div style={{ width: 16, height: 16, border: `2px solid ${selected ? COLORS.accentGlow : COLORS.border}`, borderRadius: 2, background: selected ? COLORS.accentGlow : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {selected && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+      <div style={{
+        width: 15, height: 15,
+        border: `1px solid ${selected ? COLORS.accent : "rgba(255,255,255,0.2)"}`,
+        borderRadius: 2,
+        background: selected ? COLORS.accent : "transparent",
+        flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {selected && <span style={{ color: "#000", fontSize: 9, fontWeight: 800 }}>✓</span>}
       </div>
-      <div style={{ flex: 1, fontSize: 13, color: COLORS.text }}>{q.q}</div>
+      <div style={{ flex: 1, fontSize: "0.8rem", color: COLORS.text, fontFamily: MONO }}>{q.q}</div>
       <TopicTag topic={q.topic} />
       <DiffTag diff={q.diff} />
     </div>
   );
 }
+
+
+

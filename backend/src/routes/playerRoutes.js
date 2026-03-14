@@ -17,6 +17,11 @@ router.get(
 );
 
 router.get(
+   '/leaderboard',
+   playerController.getLeaderboard
+);
+
+router.get(
    '/:playerId',
    playerController.getPlayer
 );

@@ -8,6 +8,7 @@ import {
   RoomCreateScreen,
   RoomJoinScreen,
   QuestionPickScreen,
+  RoomReadyScreen,
   ResultsScreen,
   GachaScreen,
   DeckbuilderScreen,
@@ -19,6 +20,7 @@ const SCREENS = {
   "room-create":   RoomCreateScreen,
   "room-join":     RoomJoinScreen,
   "pick-questions": QuestionPickScreen,
+  "room-ready":    RoomReadyScreen,
   battle:          BattlePage,
   results:         ResultsScreen,
   gacha:           GachaScreen,
@@ -28,9 +30,18 @@ const SCREENS = {
 };
 
 function App() {
-  const [screen, setScreen] = useState("lobby");
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get("screen");
+  const initial = requested && SCREENS[requested] ? requested : "lobby";
+  const [screen, setScreen] = useState(initial);
+
+  const navTo = (s) => {
+    setScreen(s);
+    window.history.replaceState(null, "", `?screen=${s}`);
+  };
+
   const Screen = SCREENS[screen] || LobbyScreen;
-  return <Screen onNav={setScreen} />;
+  return <Screen onNav={navTo} />;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

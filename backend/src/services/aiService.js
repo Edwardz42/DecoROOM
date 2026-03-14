@@ -159,8 +159,82 @@ async function getHint(questionId, playerInput = null) {
    }
 }
 
+// ── Keyword overlap fallback (no ES needed) ─────────────────────────────
+function keywordScore(questionText, answerText) {
+   const qWords = new Set((questionText || '').toLowerCase().match(/\b\w{4,}\b/g) || []);
+   const aWords = ((answerText || '').toLowerCase().match(/\b\w{4,}\b/g) || []);
+   if (qWords.size === 0 || aWords.length === 0) return 50;
+   let matches = 0;
+   for (const w of aWords) if (qWords.has(w)) matches++;
+   // generous baseline so short correct answers are not unfairly penalised
+   const raw = Math.min(1, (matches / Math.max(qWords.size, 3)) + 0.35);
+   return Math.round(raw * 100);
+}
+
+// ── Text-based grading (used by /api/ai/evaluate) ───────────────────────
+async function gradeAnswerByText(questionText, answerText) {
+   try {
+      ensureElasticConfig();
+
+      // Find the closest question in the index by text match
+      const qRes = await getElasticClient().search({
+         index: INDEX,
+         size: 1,
+         query: { match: { question_text: questionText } },
+         _source: ['question_id'],
+      });
+
+      const questionId = qRes.hits?.hits?.[0]?._source?.question_id;
+      if (!questionId) throw new Error('QUESTION_NOT_FOUND');
+
+      const result = await gradeAnswer(questionId, answerText);
+      const score = Math.round(result.score * 100);
+      const userCorrect = score >= 60;
+      return {
+         score,
+         feedback: score >= 80
+            ? `Excellent answer! (${score}/100)`
+            : score >= 60
+            ? `Good answer! (${score}/100)`
+            : `Needs improvement (${score}/100). Try to cover more key concepts.`,
+         isCorrect: userCorrect,
+      };
+   } catch {
+      // Elasticsearch not available — fall back to keyword scoring
+      const score = keywordScore(questionText, answerText);
+      return {
+         score,
+         feedback: score >= 60
+            ? `Good answer! (${score}/100)`
+            : `Partial answer (${score}/100). Be more thorough.`,
+         isCorrect: score >= 60,
+      };
+   }
+}
+
+// ── Text-based hint (used by /api/ai/hint) ──────────────────────────────
+async function getHintByText(questionText) {
+   try {
+      ensureElasticConfig();
+
+      const res = await getElasticClient().search({
+         index: INDEX,
+         size: 1,
+         query: { match: { question_text: questionText } },
+         _source: ['hint'],
+      });
+
+      const hint = res.hits?.hits?.[0]?._source?.hint;
+      return { hint: hint || 'Think about the core concepts and constraints.' };
+   } catch {
+      return { hint: 'Think about the fundamental principles. Consider edge cases and time/space complexity.' };
+   }
+}
+
 module.exports = {
    gradeAnswer,
    getQuestion,
-   getHint
+   getHint,
+   gradeAnswerByText,
+   getHintByText,
 };

@@ -8,6 +8,7 @@ const roomRoutes = require('./routes/roomRoutes');
 const gameRoutes = require('./routes/gameRoutes');
 const gachaRoutes = require('./routes/gachaRoutes');
 const playerRoutes = require('./routes/playerRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -82,6 +83,7 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/gacha', gachaRoutes);
 app.use('/api/players', playerRoutes);
+app.use('/api/ai', aiRoutes);
 
 /* ======================
    Error Handling
