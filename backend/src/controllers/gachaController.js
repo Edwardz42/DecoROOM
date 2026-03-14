@@ -1,9 +1,9 @@
 const gachaService = require('../services/gachaService');
 const questionService = require('../services/questionService');
 
-function openPack(req, res, next) {
+async function openPack(req, res, next) {
   try {
-    const result = gachaService.openPack(req.body);
+    const result = await gachaService.openPack(req.body);
     res.json(result);
   } catch (error) {
     next(error);
