@@ -10,7 +10,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.getElementById('card-container').appendChild(renderer.domElement);
 
-// Background Drifting Code
 function createCodeSnippet() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024; canvas.height = 128;
@@ -42,7 +41,6 @@ for (let i = 0; i < 70; i++) {
 }
 scene.add(codeGroup);
 
-// Load Assets
 const loader = new THREE.TextureLoader();
 const packTexture = loader.load('./assets/images/pack.png');
 packTexture.colorSpace = THREE.SRGBColorSpace;
@@ -54,7 +52,6 @@ for(let i=1; i<=8; i++) {
     cardTextures.push(t);
 }
 
-// Create Pack (MeshBasicMaterial = Original Image Look)
 const faceMat = new THREE.MeshBasicMaterial({ map: packTexture, transparent: true });
 const cardPack = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 0.1), faceMat);
 cardPack.position.y = 0.5;
@@ -64,8 +61,8 @@ let isOpened = false;
 let currentCardIdx = 0;
 let activeCard = null;
 const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2(); // For Clicking
-let mouseX = 0, mouseY = 0; // For Movement
+const mouse = new THREE.Vector2();
+let mouseX = 0, mouseY = 0;
 
 window.addEventListener('mousemove', (e) => {
     mouseX = (e.clientX / window.innerWidth) * 2 - 1;
@@ -117,7 +114,6 @@ function updateGalleryCard() {
     scene.add(activeCard);
 }
 
-// Navigation Controls
 document.getElementById('next-card').onclick = (e) => {
     e.stopPropagation();
     currentCardIdx = (currentCardIdx + 1) % 8;
@@ -149,7 +145,6 @@ function animate() {
 }
 animate();
 
-// Typewriter Setup
 const prefixT = document.getElementById('type-prefix'), mainT = document.getElementById('type-main');
 function typeWriter(text, element, delay, callback) {
     let i = 0;
