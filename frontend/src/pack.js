@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { syncClientSessionWithBackend } from './sessionSync';
 import { API_BASE } from "./apiBase";
 
-const PACK_COOLDOWN_MS = 60_000;
+const PACK_COOLDOWN_MS = 10_000;
 
 function getUnlockedIds() {
     try {

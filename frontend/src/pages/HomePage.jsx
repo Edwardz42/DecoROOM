@@ -807,7 +807,7 @@ function GachaScreen({ onNav }) {
         <Panel style={{ textAlign: "center", padding: "36px 24px", marginBottom: 24 }}>
           <div style={{ fontSize: 64, marginBottom: 12, lineHeight: 1 }}>📦</div>
           <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 20, color: COLORS.accent, letterSpacing: 4, marginBottom: 6 }}>QUESTION PACK</div>
-          <div style={{ fontSize: "0.7rem", color: COLORS.textMuted, letterSpacing: 2, marginBottom: 16 }}>Hard cards are rare. New pack every 60 seconds.</div>
+          <div style={{ fontSize: "0.7rem", color: COLORS.textMuted, letterSpacing: 2, marginBottom: 16 }}>Hard cards are rare. New pack every 10 seconds.</div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
             <div style={{ position: "relative", width: ringSize, height: ringSize }}>
