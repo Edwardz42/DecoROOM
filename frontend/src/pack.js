@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { syncClientSessionWithBackend } from './sessionSync';
+import { API_BASE } from "./apiBase";
 
 const PACK_COOLDOWN_MS = 60_000;
 
@@ -218,7 +219,7 @@ tapCta.addEventListener('click', () => openPack(false));
 
 async function fetchPackQuestions() {
     const playerId = localStorage.getItem('playerId') || 'anonymous';
-    const r = await fetch('/api/gacha/open-pack', {
+    const r = await fetch(`${API_BASE}/api/gacha/open-pack`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerId })

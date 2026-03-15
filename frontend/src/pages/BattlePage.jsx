@@ -4,6 +4,7 @@ import Timer from "../components/Timer";
 import OpponentStatus from "../components/OpponentStatus";
 import QuestionPanel from "../components/QuestionPanel";
 import AnswerBox from "../components/AnswerBox";
+import { API_BASE } from "../apiBase";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -52,7 +53,7 @@ export default function BattlePage({ onNav }) {
   const fetchState = async () => {
     if (!roomId) return;
     try {
-      const r = await fetch(`/api/game/${roomId}/state`);
+      const r = await fetch(`${API_BASE}/api/game/${roomId}/state`);
       const s = await r.json();
       setGameState(s);
 
@@ -68,7 +69,7 @@ export default function BattlePage({ onNav }) {
   const fetchCurrentQuestion = async () => {
     if (!roomId || !playerId) return;
     try {
-      const r = await fetch(`/api/game/${roomId}/question?playerId=${encodeURIComponent(playerId)}`);
+      const r = await fetch(`${API_BASE}/api/game/${roomId}/question?playerId=${encodeURIComponent(playerId)}`);
       const data = await r.json();
       if (data.gameOver) {
         await fetchState();
@@ -110,7 +111,7 @@ export default function BattlePage({ onNav }) {
     setError("");
 
     try {
-      const r = await fetch(`/api/game/${roomId}/answer`, {
+      const r = await fetch(`${API_BASE}/api/game/${roomId}/answer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,7 +138,7 @@ export default function BattlePage({ onNav }) {
       await fetchState();
 
       if (data.gameOver) {
-        const stateRes = await fetch(`/api/game/${roomId}/state`);
+        const stateRes = await fetch(`${API_BASE}/api/game/${roomId}/state`);
         const state = await stateRes.json();
         persistResult(state);
         onNav("results");
@@ -155,7 +156,7 @@ export default function BattlePage({ onNav }) {
     setAiHelp(true);
 
     try {
-      const r = await fetch(`/api/game/${roomId}/hint`, {
+      const r = await fetch(`${API_BASE}/api/game/${roomId}/hint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, playerInput: answer || null }),

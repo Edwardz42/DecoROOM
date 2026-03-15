@@ -1,3 +1,5 @@
+import { API_BASE } from "./apiBase";
+
 const SESSION_KEYS_TO_CLEAR = [
   'playerId',
   'username',
@@ -19,7 +21,7 @@ function clearClientSessionState() {
 
 export async function syncClientSessionWithBackend() {
   try {
-    const response = await fetch('/api/health', {
+    const response = await fetch(`${API_BASE}/api/health`, {
       headers: { 'Cache-Control': 'no-cache' },
     });
 

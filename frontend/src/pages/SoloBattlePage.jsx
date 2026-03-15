@@ -4,6 +4,7 @@ import Timer from "../components/Timer";
 import OpponentStatus from "../components/OpponentStatus";
 import QuestionPanel from "../components/QuestionPanel";
 import AnswerBox from "../components/AnswerBox";
+import { API_BASE } from "../apiBase";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -37,7 +38,7 @@ export default function SoloBattlePage({ onNav }) {
 
   useEffect(() => {
     const deckIds = new Set(getDeckIds());
-    fetch("/api/gacha/questions")
+    fetch(`${API_BASE}/api/gacha/questions`)
       .then(r => r.json())
       .then(qs => {
         const picked = qs.map(normaliseQuestion).filter(q => deckIds.has(q.id));
@@ -87,7 +88,7 @@ export default function SoloBattlePage({ onNav }) {
         usedHint: aiHelp,
       };
 
-      const r = await fetch("/api/ai/evaluate", {
+      const r = await fetch(`${API_BASE}/api/ai/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -125,7 +126,7 @@ export default function SoloBattlePage({ onNav }) {
         question: current.q,
       };
 
-      const r = await fetch("/api/ai/hint", {
+      const r = await fetch(`${API_BASE}/api/ai/hint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

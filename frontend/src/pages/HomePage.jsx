@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { COLORS, FONTS, MOCK_COLLECTION, normaliseQuestion } from "../constants";
 import { GameLayout, Panel, Label, Divider, ActionBtn, TopicTag, DiffTag, PlayerChip, QuestionRow } from "../components/UI";
+import { API_BASE } from "../apiBase";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -107,7 +108,7 @@ function LobbyScreen({ onNav }) {
 async function ensurePlayer() {
   let playerId = localStorage.getItem("playerId");
   if (!playerId) {
-    const r = await fetch("/api/players", {
+    const r = await fetch(`${API_BASE}/api/players`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: `Player_${Math.random().toString(36).slice(2, 8)}` }),
@@ -132,7 +133,7 @@ function RoomCreateScreen({ onNav }) {
     const init = async () => {
       try {
         const playerId = await ensurePlayer();
-        const r = await fetch("/api/rooms", {
+        const r = await fetch(`${API_BASE}/api/rooms`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ hostPlayerId: playerId }),
@@ -251,7 +252,7 @@ function RoomJoinScreen({ onNav }) {
     setError(null);
     try {
       // Always create a new player for guest
-      const rPlayer = await fetch("/api/players", {
+      const rPlayer = await fetch(`${API_BASE}/api/players`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: `Player_${Math.random().toString(36).slice(2, 8)}` }),
@@ -260,7 +261,7 @@ function RoomJoinScreen({ onNav }) {
       const playerId = p.id;
       localStorage.setItem("playerId", playerId);
       localStorage.setItem("username", p.username || "You");
-      const r = await fetch(`/api/rooms/${code}/join`, {
+      const r = await fetch(`${API_BASE}/api/rooms/${code}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guestPlayerId: playerId }),
@@ -307,7 +308,7 @@ function RoomWaitScreen({ onNav }) {
   useEffect(() => {
     if (!roomId) return;
     // Signal to backend that guest is waiting
-    fetch(`/api/rooms/${roomId}/guestWaiting`, {
+    fetch(`${API_BASE}/api/rooms/${roomId}/guestWaiting`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ waiting: true })
@@ -319,7 +320,7 @@ function RoomWaitScreen({ onNav }) {
     if (!roomId) return;
     const poll = setInterval(async () => {
       try {
-        const r = await fetch(`/api/rooms/${roomId}`);
+        const r = await fetch(`${API_BASE}/api/rooms/${roomId}`);
         const room = await r.json();
         if (room.hostReady) {
           setHostReady(true);
@@ -377,7 +378,7 @@ function QuestionPickScreen({ onNav }) {
 
   useEffect(() => {
     const unlocked = new Set(getUnlockedIds());
-    fetch("/api/gacha/questions")
+    fetch(`${API_BASE}/api/gacha/questions`)
       .then(r => r.json())
       .then(qs => {
         const normal = qs.map(normaliseQuestion);
@@ -431,7 +432,7 @@ function QuestionPickScreen({ onNav }) {
       const playerId = localStorage.getItem("playerId");
       if (!roomId || !playerId) throw new Error("Missing room/player session");
 
-      const deckRes = await fetch(`/api/rooms/${roomId}/questions`, {
+      const deckRes = await fetch(`${API_BASE}/api/rooms/${roomId}/questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, questionIds: picks }),
@@ -439,7 +440,7 @@ function QuestionPickScreen({ onNav }) {
       const deckJson = await deckRes.json();
       if (!deckRes.ok || deckJson.error) throw new Error(deckJson.error || "Failed to submit deck");
 
-      const readyRes = await fetch(`/api/rooms/${roomId}/ready`, {
+      const readyRes = await fetch(`${API_BASE}/api/rooms/${roomId}/ready`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, ready: true }),
@@ -742,7 +743,7 @@ function GachaScreen({ onNav }) {
     let cards = [];
     try {
       const playerId = localStorage.getItem("playerId") || "anonymous";
-      const r = await fetch("/api/gacha/open-pack", {
+      const r = await fetch(`${API_BASE}/api/gacha/open-pack`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId }),

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { COLORS, MOCK_COLLECTION, diffColor, normaliseQuestion } from "../constants";
 import { GameLayout, Label, TopicTag, DiffTag, FilterChip } from "../components/UI";
+import { API_BASE } from "../apiBase";
 
 const MONO = "'JetBrains Mono', monospace";
 
@@ -35,7 +36,7 @@ export default function CollectionPage({ onNav }) {
   useEffect(() => {
     setUnlocked(getUnlockedSet());
     setDeck(getDeckIds());
-    fetch("/api/gacha/questions")
+    fetch(`${API_BASE}/api/gacha/questions`)
       .then(r => r.json())
       .then(qs => setCollection(qs.map(normaliseQuestion)))
       .catch(() => setCollection(MOCK_COLLECTION))
