@@ -1,3 +1,23 @@
+function setGuestWaiting(req, res, next) {
+  try {
+    const { roomId } = req.params;
+    const { waiting } = req.body;
+    const room = roomService.setGuestWaiting(roomId, waiting === true);
+    res.json(room);
+  } catch (error) {
+    next(error);
+  }
+}
+function setHostReady(req, res, next) {
+  try {
+    const { roomId } = req.params;
+    const { ready } = req.body;
+    const room = roomService.setHostReady(roomId, ready === true);
+    res.json(room);
+  } catch (error) {
+    next(error);
+  }
+}
 const roomService = require('../services/roomService');
 const questionService = require('../services/questionService');
 const gameEngine = require('../engine/gameEngine');
@@ -30,8 +50,13 @@ function joinRoom(req, res, next) {
       });
     }
 
-    const room = roomService.joinRoom(roomId, guestPlayerId);
-    res.json(room);
+    try {
+      const room = roomService.joinRoom(roomId, guestPlayerId);
+      res.json(room);
+    } catch (err) {
+      // Known errors from roomService (e.g., room not found, already full, etc.)
+      return res.status(400).json({ error: err.message });
+    }
   } catch (error) {
     next(error);
   }
@@ -113,5 +138,7 @@ module.exports = {
   getRoom,
   getAllRooms,
   setReady,
-  submitQuestionSet
+  submitQuestionSet,
+  setHostReady,
+  setGuestWaiting
 };

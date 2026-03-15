@@ -18,6 +18,8 @@ function createNewRoom(hostPlayerId) {
     hostPlayerId,
     guestPlayerId: null,
     status: 'LOBBY',
+    hostReady: false, // Host has not continued yet
+    guestWaiting: false, // Guest has not reached waiting room yet
     playersReady: {
       [hostPlayerId]: false
     },
@@ -30,8 +32,19 @@ function createNewRoom(hostPlayerId) {
     winnerPlayerId: null,
     gameState: null
   };
-
   rooms[id] = room;
+  return room;
+}
+
+function setGuestWaiting(roomId, waiting) {
+  const room = getRoom(roomId);
+  room.guestWaiting = waiting === true;
+  return room;
+}
+
+function setHostReady(roomId, ready) {
+  const room = getRoom(roomId);
+  room.hostReady = ready === true;
   return room;
 }
 
@@ -160,5 +173,7 @@ module.exports = {
   hasBothQuestionSets,
   canStartGame,
   getOpponentPlayerId,
-  assertPlayerInRoom
+  assertPlayerInRoom,
+  setHostReady,
+  setGuestWaiting
 };

@@ -126,6 +126,7 @@ function RoomCreateScreen({ onNav }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [guestJoined, setGuestJoined] = useState(false);
+  const [guestWaiting, setGuestWaiting] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -160,7 +161,9 @@ function RoomCreateScreen({ onNav }) {
         const room = await r.json();
         if (room.guestPlayerId) {
           setGuestJoined(true);
-          clearInterval(poll);
+        }
+        if (room.guestWaiting) {
+          setGuestWaiting(true);
         }
       } catch {}
     }, 1500);
@@ -188,7 +191,7 @@ function RoomCreateScreen({ onNav }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0" }}>
             <PlayerChip name="You" status="HOST" color={COLORS.accent} />
             <div style={{ color: COLORS.textMuted, fontSize: "0.7rem", letterSpacing: 4, fontFamily: MONO }}>VS</div>
-            <PlayerChip name={guestJoined ? "Opponent" : "Waiting..."} status={guestJoined ? "JOINED" : "JOINING"} color={guestJoined ? COLORS.green : COLORS.textDim} pulse={!guestJoined} />
+            <PlayerChip name={guestWaiting ? "Opponent (waiting)" : guestJoined ? "Opponent" : "Waiting..."} status={guestWaiting ? "WAITING" : guestJoined ? "JOINED" : "JOINING"} color={guestWaiting ? COLORS.gold : guestJoined ? COLORS.green : COLORS.textDim} pulse={!guestJoined} />
           </div>
           <Divider />
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
@@ -210,7 +213,25 @@ function RoomCreateScreen({ onNav }) {
             </button>
           </div>
           <div style={{ paddingTop: 12 }}>
-            <ActionBtn onClick={() => onNav("room-ready")} label="Continue to Ready Room ->" accent={COLORS.accent} disabled={!guestJoined} flex />
+            <ActionBtn
+              onClick={async () => {
+                const roomId = roomCode;
+                try {
+                  await fetch(`/api/rooms/${roomId}/hostReady`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ready: true })
+                  });
+                  onNav("room-ready");
+                } catch {
+                  // Optionally show error
+                }
+              }}
+              label="Continue to Ready Room ->"
+              accent={COLORS.accent}
+              disabled={!guestJoined}
+              flex
+            />
           </div>
         </Panel>
       </div>
@@ -229,7 +250,16 @@ function RoomJoinScreen({ onNav }) {
     setLoading(true);
     setError(null);
     try {
-      const playerId = await ensurePlayer();
+      // Always create a new player for guest
+      const rPlayer = await fetch("/api/players", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: `Player_${Math.random().toString(36).slice(2, 8)}` }),
+      });
+      const p = await rPlayer.json();
+      const playerId = p.id;
+      localStorage.setItem("playerId", playerId);
+      localStorage.setItem("username", p.username || "You");
       const r = await fetch(`/api/rooms/${code}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -241,7 +271,7 @@ function RoomJoinScreen({ onNav }) {
       } else {
         localStorage.setItem("roomId", room.id);
         localStorage.setItem("roomRole", "guest");
-        onNav("room-ready");
+        onNav("room-wait");
       }
     } catch {
       setError("Could not connect to server. Is backend running?");
@@ -918,6 +948,40 @@ function LeaderboardScreen({ onNav }) {
   );
 }
 
+// ── WAITING ROOM FOR GUEST ──────────────────────────────────────────────
+function RoomWaitScreen({ onNav }) {
+  const [hostReady, setHostReady] = useState(false);
+  const [error, setError] = useState("");
+  const roomId = localStorage.getItem("roomId");
+  useEffect(() => {
+    if (!roomId) return;
+    // Signal to backend that guest is waiting
+    fetch(`/api/rooms/${roomId}/guestWaiting`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ waiting: true })
+    });
+  }, [roomId]);
+
+  useEffect(() => {
+    if (hostReady) {
+      onNav("room-ready");
+    }
+  }, [hostReady, onNav]);
+
+  return (
+    <GameLayout title="WAITING FOR HOST" onBack={() => onNav("lobby")}> 
+      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+        <Panel>
+          <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 32, color: COLORS.accent, letterSpacing: 6, textAlign: "center", marginBottom: 18 }}>Waiting for host...</div>
+          <div style={{ color: COLORS.textMuted, fontFamily: MONO, fontSize: "0.8rem", textAlign: "center" }}>Once the host continues, you'll proceed to deck building.</div>
+          {error && <div style={{ color: COLORS.red, fontFamily: MONO, fontSize: "0.7rem", marginTop: 16 }}>{error}</div>}
+        </Panel>
+      </div>
+    </GameLayout>
+  );
+}
+
 export {
   LobbyScreen,
   RoomCreateScreen,
@@ -928,5 +992,6 @@ export {
   GachaScreen,
   DeckbuilderScreen,
   LeaderboardScreen,
+  RoomWaitScreen,
   formatMs,
 };
