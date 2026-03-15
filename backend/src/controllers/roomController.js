@@ -67,16 +67,12 @@ function setReady(req, res, next) {
     }
 
     roomService.setPlayerReady(roomId, playerId, ready === true);
+    const room = roomService.getRoom(roomId);
 
-    if (roomService.canStartGame(roomId)) {
-      const room = roomService.getRoom(roomId);
-
-      if (room.status === 'LOBBY' && !room.gameState) {
-        gameEngine.startGame(roomId, room.hostPlayerId);
-      }
-    }
-
-    res.json(roomService.getRoom(roomId));
+    res.json({
+      ...room,
+      canStart: roomService.canStartGame(roomId)
+    });
   } catch (error) {
     next(error);
   }
@@ -101,15 +97,11 @@ function submitQuestionSet(req, res, next) {
       validatedQuestions.map((question) => question.id)
     );
 
-    if (roomService.canStartGame(roomId)) {
-      const room = roomService.getRoom(roomId);
-
-      if (room.status === 'LOBBY' && !room.gameState) {
-        gameEngine.startGame(roomId, room.hostPlayerId);
-      }
-    }
-
-    res.json(roomService.getRoom(roomId));
+    const room = roomService.getRoom(roomId);
+    res.json({
+      ...room,
+      canStart: roomService.canStartGame(roomId)
+    });
   } catch (error) {
     next(error);
   }

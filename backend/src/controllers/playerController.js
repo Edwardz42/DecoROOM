@@ -79,12 +79,32 @@ function getPlayers(req,res,next){
 
 }
 
+function getLeaderboard(req, res, next) {
+
+   try {
+
+      const limit = Number(req.query.limit) || 25;
+      const leaderboard = playerService.getLeaderboard(limit);
+
+      res.json(leaderboard);
+
+   }
+   catch (error) {
+
+      next(error);
+
+   }
+
+}
+
 module.exports = {
 
    createPlayer,
 
    getPlayer,
 
-   getPlayers
+   getPlayers,
+
+   getLeaderboard
 
 };
