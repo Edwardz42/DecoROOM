@@ -2,7 +2,8 @@ const { Client } = require('@elastic/elasticsearch');
 
 const INDEX = 'gacha_questions';
 const INFERENCE_ID = 'gacha-inference';
-const THRESHOLD = 0.94;
+const THRESHOLD = 0.92;
+const NUM_CANDIDATES = 100;
 
 const STOP_WORDS = new Set([
    'the', 'a', 'an', 'and', 'or', 'to', 'of', 'in', 'on', 'at', 'for', 'with', 'by', 'from',
@@ -12,6 +13,14 @@ const STOP_WORDS = new Set([
 ]);
 
 let client;
+
+function buildFeedback(score) {
+   return score >= 85
+      ? `Excellent answer! (${score}/100)`
+      : score >= 62
+      ? `Good answer! (${score}/100)`
+      : `Needs improvement (${score}/100). Try to cover more key concepts.`;
+}
 
 function getElasticClient() {
    if (client) return client;
@@ -84,8 +93,7 @@ function isVagueAnswer(answerText) {
 
    if (knownVague.includes(a)) return true;
 
-   const words = a.split(/\s+/).filter(Boolean);
-   return words.length <= 3;
+   return false;
 }
 
 function evaluateAnswerQuality({
@@ -95,8 +103,6 @@ function evaluateAnswerQuality({
    semanticRaw,
 }) {
    const clean = (answerText || '').trim();
-   const words = clean.split(/\s+/).filter(Boolean);
-   const wordCount = words.length;
 
    if (!clean) {
       return {
@@ -108,32 +114,34 @@ function evaluateAnswerQuality({
    }
 
    const semanticPct = normaliseSemanticScore(semanticRaw);
+   const semanticPass = Number(semanticRaw || 0) >= THRESHOLD;
    const idealCoveragePct = keywordCoverage(idealAnswer, clean);
    const questionCoveragePct = keywordCoverage(questionText, clean);
-
-   const lengthPct = Math.min(100, (wordCount / 24) * 100);
    const conceptPct = (idealCoveragePct * 0.85) + (questionCoveragePct * 0.15);
 
-   let score100 =
-      (semanticPct * 0.50) +
-      (conceptPct * 0.40) +
-      (lengthPct * 0.10);
+   // If semantic similarity passes, trust the vector judge directly.
+   if (semanticPass && !isVagueAnswer(clean)) {
+      return {
+         score100: Math.round(Number(semanticRaw || 0) * 100),
+         semanticPct,
+         conceptPct,
+         isCorrect: true,
+      };
+   }
 
-   // Hard quality gates: short/vague answers should not pass.
-   if (wordCount < 4) score100 *= 0.45;
-   if (wordCount < 7) score100 *= 0.85;
-   if (conceptPct < 18) score100 *= 0.55;
+   let score100 =
+      (semanticPct * 0.60) +
+      (conceptPct * 0.40);
+
    if (isVagueAnswer(clean)) score100 = Math.min(score100, 20);
 
    score100 = Math.max(0, Math.min(100, Math.round(score100)));
-
-   const isCorrect = score100 >= 62 && conceptPct >= 18 && wordCount >= 4;
 
    return {
       score100,
       semanticPct,
       conceptPct,
-      isCorrect,
+      isCorrect: false,
    };
 }
 
@@ -153,7 +161,7 @@ async function gradeAnswer(questionId, playerInput) {
                   }
                },
                k: 1,
-               num_candidates: 10,
+               num_candidates: NUM_CANDIDATES,
                filter: {
                   term: {
                      question_id: questionId
@@ -180,10 +188,13 @@ async function gradeAnswer(questionId, playerInput) {
       const isCorrect = judged.isCorrect;
 
       return {
+         engine: 'elasticsearch',
+         usedElastic: true,
          isCorrect,
          score,
          rawScore,
          threshold: THRESHOLD,
+         feedback: buildFeedback(judged.score100),
          matchedQuestionId: hit?._source?.question_id || null,
          idealAnswer: idealAnswer || null,
          diagnostics: {
@@ -259,7 +270,7 @@ async function getHint(questionId, playerInput = null) {
                   }
                },
                k: 1,
-               num_candidates: 10,
+               num_candidates: NUM_CANDIDATES,
                filter: {
                   term: {
                      question_id: questionId
@@ -294,46 +305,100 @@ function keywordScore(questionText, answerText) {
    return Math.round(raw * 100);
 }
 
+function normaliseQuestionText(text) {
+   return String(text || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+}
+
+async function resolveQuestionByText(questionText) {
+   ensureElasticConfig();
+
+   const exact = normaliseQuestionText(questionText);
+   if (!exact) {
+      throw new Error('QUESTION_NOT_FOUND');
+   }
+
+   const res = await getElasticClient().search({
+      index: INDEX,
+      size: 25,
+      query: {
+         bool: {
+            should: [
+               { match_phrase: { question_text: { query: questionText, boost: 5 } } },
+               { match: { question_text: { query: questionText, operator: 'and', boost: 3 } } },
+               { match: { question_text: { query: questionText } } }
+            ],
+            minimum_should_match: 1
+         }
+      },
+      _source: ['question_id', 'topic', 'question_text', 'ideal_answer', 'hint', 'difficulty']
+   });
+
+   const hits = res.hits?.hits || [];
+   const exactHit = hits.find((hit) => normaliseQuestionText(hit._source?.question_text) === exact);
+
+   if (!exactHit) {
+      throw new Error('QUESTION_NOT_FOUND');
+   }
+
+   return {
+      id: exactHit._source.question_id,
+      topic: exactHit._source.topic,
+      questionText: exactHit._source.question_text,
+      idealAnswer: exactHit._source.ideal_answer,
+      hint: exactHit._source.hint,
+      difficulty: exactHit._source.difficulty || 'medium'
+   };
+}
+
+async function gradeAnswerByQuestionId(questionId, answerText) {
+   const result = await gradeAnswer(questionId, answerText);
+   const score = Math.round(result.score * 100);
+
+   return {
+      engine: result.engine,
+      usedElastic: result.usedElastic,
+      score,
+      rawScore: result.rawScore,
+      threshold: result.threshold,
+      feedback: result.feedback,
+      isCorrect: result.isCorrect,
+      diagnostics: result.diagnostics,
+      matchedQuestionId: result.matchedQuestionId,
+   };
+}
+
 // ── Text-based grading (used by /api/ai/evaluate) ───────────────────────
 async function gradeAnswerByText(questionText, answerText) {
    try {
-      ensureElasticConfig();
+      const matched = await resolveQuestionByText(questionText);
+      return await gradeAnswerByQuestionId(matched.id, answerText);
+   } catch (error) {
+      if (error.message !== 'QUESTION_NOT_FOUND') {
+         throw error;
+      }
 
-      // Find the closest question in the index by text match
-      const qRes = await getElasticClient().search({
-         index: INDEX,
-         size: 1,
-         query: { match: { question_text: questionText } },
-         _source: ['question_id', 'ideal_answer', 'question_text'],
-      });
-
-      const matched = qRes.hits?.hits?.[0]?._source || null;
-      const questionId = matched?.question_id;
-      if (!questionId) throw new Error('QUESTION_NOT_FOUND');
-
-      const result = await gradeAnswer(questionId, answerText);
-      const score = Math.round(result.score * 100);
-      const userCorrect = score >= 62;
-      return {
-         score,
-         feedback: score >= 85
-            ? `Excellent answer! (${score}/100)`
-            : score >= 62
-            ? `Good answer! (${score}/100)`
-            : `Needs improvement (${score}/100). Try to cover more key concepts.`,
-         isCorrect: result.isCorrect && userCorrect,
-      };
-   } catch {
-      // Elasticsearch not available — fall back to keyword scoring
       const score = keywordScore(questionText, answerText);
       const wordCount = answerText.trim().split(/\s+/).filter(Boolean).length;
       const strictScore = wordCount < 4 ? Math.min(score, 25) : score;
       return {
+         engine: 'keyword-fallback',
+         usedElastic: false,
          score: strictScore,
+         rawScore: null,
+         threshold: null,
          feedback: strictScore >= 62
             ? `Good answer! (${strictScore}/100)`
             : `Partial answer (${strictScore}/100). Be more thorough and specific.`,
          isCorrect: strictScore >= 62 && wordCount >= 4,
+         diagnostics: {
+            fallback: true,
+            reason: error.message,
+         },
+         matchedQuestionId: null,
       };
    }
 }
@@ -341,16 +406,8 @@ async function gradeAnswerByText(questionText, answerText) {
 // ── Text-based hint (used by /api/ai/hint) ──────────────────────────────
 async function getHintByText(questionText) {
    try {
-      ensureElasticConfig();
-
-      const res = await getElasticClient().search({
-         index: INDEX,
-         size: 1,
-         query: { match: { question_text: questionText } },
-         _source: ['hint'],
-      });
-
-      const hint = res.hits?.hits?.[0]?._source?.hint;
+      const question = await resolveQuestionByText(questionText);
+      const hint = question.hint;
       return { hint: hint || 'Think about the core concepts and constraints.' };
    } catch {
       return { hint: 'Think about the fundamental principles. Consider edge cases and time/space complexity.' };
@@ -361,6 +418,7 @@ module.exports = {
    gradeAnswer,
    getQuestion,
    getHint,
+   gradeAnswerByQuestionId,
    gradeAnswerByText,
    getHintByText,
 };

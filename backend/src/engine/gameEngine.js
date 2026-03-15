@@ -256,6 +256,16 @@ async function submitAnswer({ roomId, playerId, questionId, answer }) {
     finished: player.completed,
     gameOver: room.status === 'FINISHED',
     winnerPlayerId: room.winnerPlayerId,
+    feedback: grading.feedback,
+    grading: {
+      engine: grading.engine,
+      usedElastic: grading.usedElastic,
+      rawScore: grading.rawScore,
+      threshold: grading.threshold,
+      answerScore: grading.score,
+      diagnostics: grading.diagnostics,
+      matchedQuestionId: grading.matchedQuestionId,
+    },
   };
 }
 

@@ -126,9 +126,12 @@ export default function BattlePage({ onNav }) {
       }
 
       setFeedback({
-        text: data.correct ? "Correct answer." : "Not quite correct.",
+        text: data.feedback || (data.correct ? "Correct answer." : "Not quite correct."),
         pts: data.points || 0,
         correct: !!data.correct,
+        meta: data.grading?.usedElastic
+          ? `AI: ${Math.round(Number(data.grading.rawScore || 0) * 100)}/100 · threshold ${Math.round(Number(data.grading.threshold || 0) * 100)}/100`
+          : null,
       });
 
       await fetchState();
