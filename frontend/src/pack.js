@@ -183,7 +183,7 @@ function generateCardTexture(text, color, rarity) {
 }
 
 const loader = new THREE.TextureLoader();
-const packTex = loader.load('./assets/images/pack.png', (t) => t.colorSpace = THREE.SRGBColorSpace);
+const packTex = loader.load('/assets/images/pack.png', (t) => t.colorSpace = THREE.SRGBColorSpace);
 const cardPack = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 0.1), new THREE.MeshBasicMaterial({ map: packTex, transparent: true }));
 cardPack.position.y = 0.5;
 scene.add(cardPack);
