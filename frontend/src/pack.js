@@ -97,7 +97,6 @@ document.getElementById('card-container').appendChild(renderer.domElement);
 
 let questionPool = [];
 
-// --- RESTORED ORIGINAL CIRCULAR CODE TUNNEL ---
 function createCodeSnippet() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024; canvas.height = 128;
@@ -120,7 +119,7 @@ function createCodeSnippet() {
 }
 
 const codeGroup = new THREE.Group();
-const snippetCount = 120; // High density
+const snippetCount = 120; 
 
 for (let i = 0; i < snippetCount; i++) {
     const material = new THREE.MeshBasicMaterial({
@@ -133,21 +132,16 @@ for (let i = 0; i < snippetCount; i++) {
     const geometry = new THREE.PlaneGeometry(4, 0.5);
     const mesh = new THREE.Mesh(geometry, material);
     
-    // CIRCULAR LOGIC: Placing snippets in a 360-degree cylinder
     const angle = (i / snippetCount) * Math.PI * 2 + (Math.random() * 0.5); 
-    const radius = 10 + Math.random() * 5; // The radius of the tunnel
-    const yPos = (Math.random() - 0.5) * 30; // Vertical spread
+    const radius = 10 + Math.random() * 5; 
+    const yPos = (Math.random() - 0.5) * 30; 
     
     mesh.position.set(Math.sin(angle) * radius, yPos, -Math.cos(angle) * radius);
-    
-    // Make each snippet face the center of the tunnel
     mesh.lookAt(0, mesh.position.y, 0);
-    
     codeGroup.add(mesh);
 }
 scene.add(codeGroup);
 
-// --- CARD TEXT GENERATOR (No branding) ---
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     const words = text.split(' ');
     let line = '';
@@ -231,7 +225,6 @@ async function fetchPackQuestions() {
     });
     const data = await r.json();
     if (!Array.isArray(data.pack)) throw new Error('PACK_FETCH_FAILED');
-
     return data.pack.slice(0, 8).map((q) => ({
         id: q.questionId || q.id,
         questionText: q.questionText || q.q || '',
@@ -342,7 +335,6 @@ document.getElementById('prev-card').onclick = (e) => {
 
 function animate() {
     requestAnimationFrame(animate);
-
     const targetRotY = mouseX * Math.PI; 
     const targetRotX = mouseY * Math.PI;
 
@@ -356,7 +348,6 @@ function animate() {
         activeCard.position.y = 0.0; 
     }
 
-    // --- CIRCULAR EFFECT MOVES WITH PACK ---
     codeGroup.rotation.y += (-mouseX * 0.15 - codeGroup.rotation.y) * 0.02;
     codeGroup.rotation.x += (-mouseY * 0.15 - codeGroup.rotation.x) * 0.02;
     
@@ -375,14 +366,12 @@ updateCardMeta();
 
 const initSessionAndStarterPack = async () => {
     await syncClientSessionWithBackend();
-
     const hasUnlocked = getUnlockedIds().length > 0;
     const starterClaimed = localStorage.getItem('starterPackClaimed') === '1';
     if (!hasUnlocked && !starterClaimed) {
         setTimeout(() => openPack(true), 650);
     }
 };
-
 initSessionAndStarterPack();
 
 const prefixT = document.getElementById('type-prefix'), mainT = document.getElementById('type-main');
