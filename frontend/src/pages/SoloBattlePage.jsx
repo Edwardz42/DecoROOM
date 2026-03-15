@@ -80,17 +80,35 @@ export default function SoloBattlePage({ onNav }) {
     setError("");
 
     try {
+      const payload = {
+        questionId: current.id || undefined,
+        question: current.q,
+        answer,
+        usedHint: aiHelp,
+      };
+
       const r = await fetch("/api/ai/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: current.q, answer, usedHint: aiHelp }),
+        body: JSON.stringify(payload),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(data.error || data.message || "AI evaluate request failed");
+      }
+
       const pts = Math.round((Number(data.score || 0) / 100) * (current.pts || 200) * (aiHelp ? 0.5 : 1));
       setMyScore(s => s + pts);
-      setFeedback({ text: data.feedback || "Submitted", pts, correct: !!data.isCorrect });
-    } catch {
-      setError("Could not evaluate answer.");
+      setFeedback({
+        text: data.feedback || "Submitted",
+        pts,
+        correct: !!data.isCorrect,
+        meta: data.usedElastic
+          ? `AI: ${Math.round(Number(data.rawScore || 0) * 100)}/100 · threshold ${Math.round(Number(data.threshold || 0) * 100)}/100`
+          : "Fallback grading used",
+      });
+    } catch (e) {
+      setError(e.message || "Could not evaluate answer.");
       setFeedback({ text: "No score awarded.", pts: 0, correct: false });
     }
 
@@ -102,12 +120,20 @@ export default function SoloBattlePage({ onNav }) {
     setAiHelp(true);
     setLoading(true);
     try {
+      const payload = {
+        questionId: current.id || undefined,
+        question: current.q,
+      };
+
       const r = await fetch("/api/ai/hint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: current.q }),
+        body: JSON.stringify(payload),
       });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(data.error || data.message || "AI hint request failed");
+      }
       setAiResponse(data.hint || "Think from first principles.");
     } catch {
       setAiResponse("Think from first principles.");

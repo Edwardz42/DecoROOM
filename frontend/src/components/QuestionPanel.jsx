@@ -36,6 +36,11 @@ export default function QuestionPanel({ question, aiResponse, feedback }) {
         <div style={{ marginTop: 16, background: feedback.correct ? "rgba(80,250,123,0.07)" : "rgba(255,85,85,0.07)", border: `1px solid ${feedback.correct ? COLORS.green : COLORS.red}`, borderRadius: 5, padding: 14, fontSize: "0.78rem", color: feedback.correct ? COLORS.green : COLORS.red, lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace" }}>
           <span style={{ fontWeight: 700 }}>+{feedback.pts} pts · </span>
           {feedback.text}
+          {feedback.meta && (
+            <div style={{ marginTop: 8, color: COLORS.textMuted }}>
+              {feedback.meta}
+            </div>
+          )}
         </div>
       )}
     </div>
