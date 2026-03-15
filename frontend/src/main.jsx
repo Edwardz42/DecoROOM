@@ -13,6 +13,7 @@ import {
   ResultsScreen,
   DeckbuilderScreen,
   LeaderboardScreen,
+  RoomWaitScreen,
 } from "./pages/HomePage";
 import { syncClientSessionWithBackend } from "./sessionSync";
 
@@ -38,6 +39,7 @@ const SCREENS = {
   collection:      CollectionPage,
   deckbuilder:     DeckbuilderScreen,
   leaderboard:     LeaderboardScreen,
+  "room-wait":     RoomWaitScreen,
 };
 
 function App() {
