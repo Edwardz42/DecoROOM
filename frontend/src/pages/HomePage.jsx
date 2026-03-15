@@ -222,12 +222,12 @@ function RoomCreateScreen({ onNav }) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ready: true })
                   });
-                  onNav("room-ready");
+                  onNav("pick-questions");
                 } catch {
                   // Optionally show error
                 }
               }}
-              label="Continue to Ready Room ->"
+              label="Continue to Deck Pick ->"
               accent={COLORS.accent}
               disabled={!guestJoined}
               flex
@@ -299,6 +299,55 @@ function RoomJoinScreen({ onNav }) {
   );
 }
 
+// ── WAITING ROOM FOR GUEST ──────────────────────────────────────────────
+function RoomWaitScreen({ onNav }) {
+  const [hostReady, setHostReady] = useState(false);
+  const [error, setError] = useState("");
+  const roomId = localStorage.getItem("roomId");
+  useEffect(() => {
+    if (!roomId) return;
+    // Signal to backend that guest is waiting
+    fetch(`/api/rooms/${roomId}/guestWaiting`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ waiting: true })
+    });
+  }, [roomId]);
+
+  // Poll for hostReady
+  useEffect(() => {
+    if (!roomId) return;
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/rooms/${roomId}`);
+        const room = await r.json();
+        if (room.hostReady) {
+          setHostReady(true);
+        }
+      } catch {}
+    }, 1500);
+    return () => clearInterval(poll);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (hostReady) {
+      onNav("pick-questions");
+    }
+  }, [hostReady, onNav]);
+
+  return (
+    <GameLayout title="WAITING FOR HOST" onBack={() => onNav("lobby")}> 
+      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+        <Panel>
+          <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 32, color: COLORS.accent, letterSpacing: 6, textAlign: "center", marginBottom: 18 }}>Waiting for host...</div>
+          <div style={{ color: COLORS.textMuted, fontFamily: MONO, fontSize: "0.8rem", textAlign: "center" }}>Once the host continues, you'll proceed to deck building.</div>
+          {error && <div style={{ color: COLORS.red, fontFamily: MONO, fontSize: "0.7rem", marginTop: 16 }}>{error}</div>}
+        </Panel>
+      </div>
+    </GameLayout>
+  );
+}
+
 // ── QUESTION PICKER ───────────────────────────────────────────────────────
 function QuotaBadge({ diff, count, max }) {
   const palette = {
@@ -321,6 +370,8 @@ function QuestionPickScreen({ onNav }) {
   const [loadingPool, setLoadingPool] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [oppDeckReady, setOppDeckReady] = useState(false);
+  const [oppName, setOppName] = useState("Opponent");
   const quotas = { easy: 3, medium: 3, hard: 2 };
   const totalNeeded = 8;
 
@@ -335,6 +386,27 @@ function QuestionPickScreen({ onNav }) {
       })
       .catch(() => setPool(MOCK_COLLECTION.filter(q => q.owned)))
       .finally(() => setLoadingPool(false));
+  }, []);
+
+  // Poll for opponent deck submission
+  useEffect(() => {
+    const roomId = localStorage.getItem("roomId");
+    const playerId = localStorage.getItem("playerId");
+    if (!roomId || !playerId) return;
+    let cancelled = false;
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/rooms/${roomId}`);
+        const room = await r.json();
+        const isHost = room.hostPlayerId === playerId;
+        const oppId = isHost ? room.guestPlayerId : room.hostPlayerId;
+        if (oppId) {
+          setOppDeckReady((room.submittedQuestionSets?.[oppId] || []).length === 8);
+          setOppName(isHost ? "Guest" : "Host");
+        }
+      } catch {}
+    }, 1500);
+    return () => { cancelled = true; clearInterval(poll); };
   }, []);
 
   const count = (diff) => picks.filter(id => pool.find(q => q.id === id)?.diff === diff).length;
@@ -413,6 +485,14 @@ function QuestionPickScreen({ onNav }) {
         </div>
 
         {error && <div style={{ marginTop: 10, color: COLORS.red, fontFamily: MONO, fontSize: "0.72rem" }}>{error}</div>}
+
+        {oppDeckReady && (
+          <Panel style={{ marginBottom: 14, borderColor: COLORS.green }}>
+            <div style={{ color: COLORS.green, fontFamily: MONO, fontSize: "0.72rem", letterSpacing: 1 }}>
+              {oppName} has submitted their deck!
+            </div>
+          </Panel>
+        )}
 
         <div style={{ marginTop: 20 }}>
           <ActionBtn onClick={readyUp} label={submitting ? "Submitting..." : "Ready Up ->"} accent={COLORS.accent} disabled={picks.length !== totalNeeded || submitting || notEnoughUnlocked} flex />
@@ -528,12 +608,15 @@ function RoomReadyScreen({ onNav }) {
     );
   }
 
+  // Define these after room is confirmed
   const isHost = room.hostPlayerId === playerId;
+  const myDeckReady = (room.submittedQuestionSets?.[playerId] || []).length === 8;
+  const oppId = isHost ? room.guestPlayerId : room.hostPlayerId;
+  const oppDeckReady = oppId ? (room.submittedQuestionSets?.[oppId] || []).length === 8 : false;
+
   const hostReady = room.playersReady?.[room.hostPlayerId] === true;
   const guestReady = room.guestPlayerId ? room.playersReady?.[room.guestPlayerId] === true : false;
-  const hostDeckReady = (room.submittedQuestionSets?.[room.hostPlayerId] || []).length === 8;
-  const guestDeckReady = room.guestPlayerId ? (room.submittedQuestionSets?.[room.guestPlayerId] || []).length === 8 : false;
-  const canStart = !!room.guestPlayerId && hostReady && guestReady && hostDeckReady && guestDeckReady;
+  const canStart = !!room.guestPlayerId && hostReady && guestReady && myDeckReady && oppDeckReady;
   const meReady = room.playersReady?.[playerId] === true;
 
   return (
@@ -549,10 +632,10 @@ function RoomReadyScreen({ onNav }) {
               <span>Saved local deck</span><span style={{ color: savedDeck.length === 8 ? COLORS.green : COLORS.red }}>{savedDeck.length}/8</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
-              <span>Host deck submitted</span><span style={{ color: hostDeckReady ? COLORS.green : COLORS.red }}>{hostDeckReady ? "YES" : "NO"}</span>
+              <span>Your deck submitted</span><span style={{ color: myDeckReady ? COLORS.green : COLORS.red }}>{myDeckReady ? "YES" : "NO"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
-              <span>Guest deck submitted</span><span style={{ color: guestDeckReady ? COLORS.green : COLORS.red }}>{guestDeckReady ? "YES" : "NO"}</span>
+              <span>Opponent deck submitted</span><span style={{ color: oppDeckReady ? COLORS.green : COLORS.red }}>{oppDeckReady ? "YES" : "NO"}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: MONO, fontSize: "0.75rem", color: COLORS.text }}>
               <span>Host ready</span><span style={{ color: hostReady ? COLORS.green : COLORS.red }}>{hostReady ? "YES" : "NO"}</span>
@@ -943,40 +1026,6 @@ function LeaderboardScreen({ onNav }) {
             })}
           </div>
         )}
-      </div>
-    </GameLayout>
-  );
-}
-
-// ── WAITING ROOM FOR GUEST ──────────────────────────────────────────────
-function RoomWaitScreen({ onNav }) {
-  const [hostReady, setHostReady] = useState(false);
-  const [error, setError] = useState("");
-  const roomId = localStorage.getItem("roomId");
-  useEffect(() => {
-    if (!roomId) return;
-    // Signal to backend that guest is waiting
-    fetch(`/api/rooms/${roomId}/guestWaiting`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ waiting: true })
-    });
-  }, [roomId]);
-
-  useEffect(() => {
-    if (hostReady) {
-      onNav("room-ready");
-    }
-  }, [hostReady, onNav]);
-
-  return (
-    <GameLayout title="WAITING FOR HOST" onBack={() => onNav("lobby")}> 
-      <div style={{ maxWidth: 500, margin: "0 auto" }}>
-        <Panel>
-          <div style={{ fontFamily: MONO, fontWeight: 800, fontSize: 32, color: COLORS.accent, letterSpacing: 6, textAlign: "center", marginBottom: 18 }}>Waiting for host...</div>
-          <div style={{ color: COLORS.textMuted, fontFamily: MONO, fontSize: "0.8rem", textAlign: "center" }}>Once the host continues, you'll proceed to deck building.</div>
-          {error && <div style={{ color: COLORS.red, fontFamily: MONO, fontSize: "0.7rem", marginTop: 16 }}>{error}</div>}
-        </Panel>
       </div>
     </GameLayout>
   );
