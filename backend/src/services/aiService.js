@@ -1,28 +1,82 @@
-const axios = require('axios');
+const { getElasticClient } = require('./elasticService');
 
-// CHANGE THIS when Yash gives real endpoint
-const AI_BASE_URL = process.env.AI_SERVICE_URL || 'http://localhost:4000';
+const INDEX =
+process.env.ELASTIC_INDEX
+|| "gacha_questions";
 
-async function gradeAnswer(questionId, playerAnswer){
+async function gradeAnswer(
+   questionId,
+   playerAnswer
+){
+
+   const client =
+   getElasticClient();
 
    try{
 
-      const response = await axios.post(
-         `${AI_BASE_URL}/grade`,
-         {
-            questionId,
-            answer:playerAnswer
-         }
-      );
+      const response =
+      await client.get({
 
-      return response.data;
+         index:INDEX,
+
+         id:questionId
+
+      });
+
+      const q =
+      response._source;
+
+      const ideal =
+      (q.ideal_answer || "")
+      .toLowerCase()
+      .trim();
+
+      const answer =
+      (playerAnswer || "")
+      .toLowerCase()
+      .trim();
+
+      // smarter grading
+      const correct =
+
+         answer === ideal ||
+
+         ideal.includes(answer) ||
+
+         answer.includes(ideal);
+
+      return{
+
+         correct,
+
+         score:
+         correct ? 1 : 0,
+
+         feedback:
+         correct
+         ? "Correct"
+         : "Incorrect",
+
+         hint:
+         correct
+         ? null
+         : q.hint || null,
+
+         question:q
+
+      };
 
    }
    catch(error){
 
-      console.error("AI grading failed:",error.message);
+      console.error(
+         "Elastic grading failed:",
+         error.message
+      );
 
-      throw new Error("AI_GRADING_FAILED");
+      throw new Error(
+         "AI_GRADING_FAILED"
+      );
 
    }
 
@@ -30,26 +84,36 @@ async function gradeAnswer(questionId, playerAnswer){
 
 async function getQuestion(questionId){
 
+   const client =
+   getElasticClient();
+
    try{
 
-      const response = await axios.get(
-         `${AI_BASE_URL}/question/${questionId}`
-      );
+      const response =
+      await client.get({
 
-      return response.data;
+         index:INDEX,
+
+         id:questionId
+
+      });
+
+      return response._source;
 
    }
    catch(error){
 
-      console.error("Question fetch failed:",error.message);
-
-      throw new Error("QUESTION_FETCH_FAILED");
+      throw new Error(
+         "QUESTION_FETCH_FAILED"
+      );
 
    }
 
 }
 
 module.exports = {
+
    gradeAnswer,
    getQuestion
+
 };

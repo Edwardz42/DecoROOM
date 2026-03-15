@@ -8,6 +8,16 @@ async function startGame(req,res,next){
       const {roomId} = req.params;
       const {requesterPlayerId} = req.body;
 
+      if(!roomId || !requesterPlayerId){
+
+         return res.status(400).json({
+
+            error:"roomId and requesterPlayerId required"
+
+         });
+
+      }
+
       const result =
       gameEngine.startGame(
          roomId,
@@ -31,6 +41,16 @@ async function getState(req,res,next){
 
       const {roomId} = req.params;
 
+      if(!roomId){
+
+         return res.status(400).json({
+
+            error:"roomId required"
+
+         });
+
+      }
+
       const state =
       gameEngine.buildPublicGameState(
          roomId
@@ -53,6 +73,16 @@ async function getCurrentQuestion(req,res,next){
 
       const {roomId} = req.params;
       const {playerId} = req.query;
+
+      if(!playerId){
+
+         return res.status(400).json({
+
+            error:"playerId required"
+
+         });
+
+      }
 
       const question =
       await gameEngine.getCurrentQuestionForPlayer(
@@ -78,10 +108,29 @@ async function submitAnswer(req,res,next){
       const {roomId} = req.params;
 
       const {
+
          playerId,
          questionId,
          answer
+
       } = req.body;
+
+      if(
+
+         !playerId ||
+         !questionId ||
+         answer === undefined
+
+      ){
+
+         return res.status(400).json({
+
+            error:
+            "playerId, questionId, answer required"
+
+         });
+
+      }
 
       const result =
       await gameEngine.submitAnswer({
@@ -110,6 +159,16 @@ async function skipQuestion(req,res,next){
 
       const {roomId} = req.params;
       const {playerId} = req.body;
+
+      if(!playerId){
+
+         return res.status(400).json({
+
+            error:"playerId required"
+
+         });
+
+      }
 
       const result =
       gameEngine.skipQuestion(

@@ -1,7 +1,10 @@
-// Questions will come from Elastic later.
-// For now we just return placeholder IDs.
+const { getElasticClient } = require('./elasticService');
 
-function openPack(playerId){
+const INDEX_NAME =
+process.env.ELASTIC_INDEX
+|| "gacha_questions";
+
+async function openPack(playerId){
 
    if(!playerId){
 
@@ -11,42 +14,95 @@ function openPack(playerId){
 
    }
 
-   // temporary placeholder pack
-   // Elastic team will replace this
+   const client =
+   getElasticClient();
 
-   const pack = [];
+   try{
 
-   for(let i=0;i<8;i++){
+      const response =
+      await client.search({
 
-      pack.push({
+         index:
+         INDEX_NAME,
 
-         questionId:
-         "q_"+Math.random()
-         .toString(36)
-         .substring(2,10),
+         size:8,
 
-         difficulty:
-         ["easy","medium","hard"]
-         [
-            Math.floor(
-               Math.random()*3
-            )
-         ]
+         query:{
+
+            function_score:{
+
+               query:{
+                  match_all:{}
+               },
+
+               random_score:{}
+
+            }
+
+         }
 
       });
 
+      if(
+         !response.hits ||
+         !response.hits.hits
+      ){
+
+         throw new Error(
+            "No questions returned"
+         );
+
+      }
+
+      const pack =
+      response.hits.hits.map(hit => {
+
+         const q =
+         hit._source || {};
+
+         return{
+
+            questionId:
+            hit._id,
+
+            difficulty:
+            q.difficulty ||
+            "easy"
+
+         };
+
+      });
+
+      return{
+
+         playerId,
+
+         pack,
+
+         openedAt:
+         new Date().toISOString()
+
+      };
+
    }
+   catch(error){
 
-   return {
+      console.error(
 
-      playerId,
+         "Elastic pack pull failed:",
 
-      pack,
+         error.meta?.body ||
+         error.message
 
-      openedAt:
-      new Date().toISOString()
+      );
 
-   };
+      throw new Error(
+
+         "Failed to fetch questions from database"
+
+      );
+
+   }
 
 }
 

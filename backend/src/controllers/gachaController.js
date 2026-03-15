@@ -1,25 +1,57 @@
 const gachaService = require('../services/gachaService');
 const questionService = require('../services/questionService');
 
-function openPack(req, res, next) {
+async function openPack(req, res, next) {
+
   try {
-    const result = gachaService.openPack(req.body);
+
+    const { playerId } = req.body;
+
+    if(!playerId){
+
+      throw new Error(
+        "playerId required"
+      );
+
+    }
+
+    const result =
+    await gachaService.openPack(
+      playerId
+    );
+
     res.json(result);
-  } catch (error) {
-    next(error);
+
   }
+  catch (error) {
+
+    next(error);
+
+  }
+
 }
 
-function getAllQuestions(req, res, next) {
+async function getAllQuestions(req, res, next) {
+
   try {
-    const questions = questionService.getAllQuestions();
+
+    const questions =
+    await questionService.getAllQuestions();
+
     res.json(questions);
-  } catch (error) {
-    next(error);
+
   }
+  catch (error) {
+
+    next(error);
+
+  }
+
 }
 
 module.exports = {
+
   openPack,
   getAllQuestions
+
 };

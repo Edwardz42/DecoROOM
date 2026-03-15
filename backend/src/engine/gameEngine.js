@@ -1,28 +1,21 @@
 const roomService = require('../services/roomService');
-const questionService = require('../services/questionService');
 const moveService = require('../services/moveService');
 const aiService = require('../services/aiService');
 
 const GAME_TIME = 10 * 60 * 1000;
 
 const BASE_POINTS = {
-
    easy:100,
    medium:250,
    hard:500
-
 };
 
 function now(){
-
    return Date.now();
-
 }
 
 function iso(){
-
    return new Date().toISOString();
-
 }
 
 function createPlayerState(
@@ -67,23 +60,18 @@ function calculatePoints(
 
 ){
 
+   const difficulty =
+   question.difficulty || "easy";
+
    const base =
-   BASE_POINTS[
-      question.difficulty
-   ] || 100;
+   BASE_POINTS[difficulty] || 100;
 
    const speedBonus =
    Math.max(
-
       0,
-
       Math.round(
-
-         200 -
-         (responseTime/50)
-
+         200 - (responseTime/50)
       )
-
    );
 
    const streakBonus =
@@ -92,22 +80,8 @@ function calculatePoints(
       300
    );
 
-   let accuracyBonus = 0;
-
-   if(aiScore){
-
-      accuracyBonus =
-      Math.round(
-         (aiScore-0.94)*1000
-      );
-
-      if(accuracyBonus < 0){
-
-         accuracyBonus = 0;
-
-      }
-
-   }
+   const accuracyBonus =
+   aiScore ? 100 : 0;
 
    return {
 
@@ -213,17 +187,13 @@ function buildPublicGameState(
       timeLeft:
 
       Math.max(
-
          0,
-
          room.gameState.endTime
          -
          now()
-
       ),
 
       players:
-
       room.gameState.players
 
    };
@@ -248,9 +218,7 @@ async function getCurrentQuestionForPlayer(
    if(player.completed){
 
       return {
-
          completed:true
-
       };
 
    }
@@ -325,21 +293,20 @@ async function submitAnswer({
    }
 
    const correct =
-   grading.isCorrect;
+   grading.correct;
 
    const responseTime =
    now()-
    player.questionStartTime;
 
    const question =
+   grading.question ||
    await aiService.getQuestion(
       questionId
    );
 
    let points = {
-
       total:0
-
    };
 
    if(correct){
@@ -432,7 +399,13 @@ async function submitAnswer({
 
       finished:
 
-      player.completed
+      player.completed,
+
+      feedback:
+      grading.feedback || null,
+
+      hint:
+      grading.hint || null
 
    };
 
